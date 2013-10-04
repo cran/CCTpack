@@ -23,7 +23,7 @@ is considered to be in its "BETA" version; improvements and bug fixes are planne
 \tabular{ll}{
 Package: \tab CCTpack\cr
 Type: \tab Package\cr
-Version: \tab 0.9 \cr
+Version: \tab 0.91 \cr
 Date: \tab 2013-10-04\cr
 License: \tab GPL (>= 2) \cr
 }

@@ -10,7 +10,9 @@
 
 cctgui <- function(){
 x <- y <- z <- dat <- clusters <- itemdiff <- whmodel <- Mode <- jagsfit.prealg <- jagsfit <- checksrunbefore <- NULL
+alltraceplot <- dtraceplot <- NULL
 rm(x,y,z,dat,clusters,itemdiff,whmodel,Mode,jagsfit.prealg,jagsfit,checksrunbefore)
+rm(alltraceplot,dtraceplot)
 instant_pkgs <- function(pkgs) { 
     pkgs_miss <- pkgs[which(!pkgs %in% installed.packages()[, 1])]
     if (length(pkgs_miss) > 0) {
@@ -321,12 +323,21 @@ jags.data <- list("Y","n","m","T")
 if(itemdiff==0){
 model.file <- mcgcm
 jags.params <- c("z","D","g","p","dmu","dth","gmu","gth","e","pi")
-jags.inits <- function(){ list("z"=matrix(rbinom(m*T,1,.5),m,T),"D"= runif(n,.2,.8), "g"= runif(n,.2,.8)   )}#, "e"= (rbinom(n,(T-1),.5)+1))}
+if(clusters>1){
+jags.inits <- function(){ list("z"=matrix(rbinom(m*T,1,.5),m,T),"D"= runif(n,.2,.8), "g"= runif(n,.2,.8),"e"= sample(1:T,n,replace=TRUE) )}
+}else{
+jags.inits <- function(){ list("z"=matrix(rbinom(m*T,1,.5),m,T),"D"= runif(n,.2,.8), "g"= runif(n,.2,.8) )}
+}
+
 }
 if(itemdiff==1){
 model.file <- mcgcmid
 jags.params <- c("z","D","g","lam","p","dmu","dth","gmu","gth","lammu","lamth","e","pi")
-jags.inits <- function(){ list("z"=matrix(rbinom(m*T,1,.5),m,T),"D"= runif(n,.2,.8), "g"= runif(n,.2,.8), "lam"= runif(m,.2,.8)   )}#,"e"= (rbinom(n,(T-1),.5)+1))}
+if(clusters>1){
+jags.inits <- function(){ list("z"=matrix(rbinom(m*T,1,.5),m,T),"D"= runif(n,.2,.8), "g"= runif(n,.2,.8), "lam"= runif(m,.2,.8), "e"= sample(1:T,n,replace=TRUE) )}
+}else{
+jags.inits <- function(){ list("z"=matrix(rbinom(m*T,1,.5),m,T),"D"= runif(n,.2,.8), "g"= runif(n,.2,.8), "lam"= runif(m,.2,.8) )}
+}
 }
 if(clusters==1){
 model.file <- gsub(pattern="pi\\[1\\:T\\] ~ ddirch\\(L\\)", "pi <- 1", model.file)
@@ -341,9 +352,18 @@ jags.data <- list("Y","n","m","C","V")
 if(itemdiff==0){
 model.file <- mcltrm
 jags.params <- c("T","gam","E","a","b","Tmu","Ttau","Emu","Etau","amu","atau","bmu","btau","e","pi")
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V), "E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1)  )}#, "e"= (rbinom(n,(V-1),.5)+1))}
+if(clusters>1){
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V), "E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "e"= sample(1:V,n,replace=TRUE)  )}
+}else{
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V), "E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1)  )}
+}
+
 if(C==2){
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "E"= runif(n,.8,1.2), "b"= rnorm(n,0,1)  )}#"tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V), "e"= (rbinom(n,(V-1),.5)+1))}
+if(clusters>1){
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "E"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "e"= sample(1:V,n,replace=TRUE)  )}#"tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V), "e"= (rbinom(n,(V-1),.5)+1))}
+}else{
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "E"= runif(n,.8,1.2), "b"= rnorm(n,0,1)  )}
+}
 model.file <- gsub(pattern="a\\[i\\] ~ dgamma\\(atau\\[e\\[i\\]\\],atau\\[e\\[i\\]\\]\\)", "a\\[i\\] <- 1", model.file)
 model.file <- gsub(pattern="atau\\[v\\] ~ dgamma\\(4,4\\)", "atau\\[v\\] <- 0", model.file)
 model.file <- gsub(pattern="for \\(c in 2\\:\\(C-1\\)\\)", " #for \\(c in 2\\:\\(C-1\\)\\)", model.file)
@@ -358,9 +378,17 @@ model.file <- gsub(pattern="tgam2\\[C", "#tgam2\\[C", model.file)
 if(itemdiff==1){
 model.file <- mcltrmid
 jags.params <- c("T","lam","gam","E","a","b","Tmu","Ttau","Emu","Etau","amu","atau","bmu","btau","lammu","lamtau","e","pi")
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "lam"= runif(m,.8,1.2), "tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V), "E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1) )}#,"e"= (rbinom(n,(V-1),.5)+1))}
+if(clusters>1){
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "lam"= runif(m,.8,1.2), "tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V), "E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "e"= sample(1:V,n,replace=TRUE) )}#,"e"= (rbinom(n,(V-1),.5)+1))}
+}else{
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "lam"= runif(m,.8,1.2), "tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V), "E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1) )}
+}
 if(C==2){
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "lam"= runif(m,.8,1.2), "E"= runif(n,.8,1.2), "b"= rnorm(n,0,1) )}#"tgam"=matrix(rnorm((C-1)*V,0,1),(C-1),V),"e"= (rbinom(n,(V-1),.5)+1))} 
+if(clusters>1){
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "lam"= runif(m,.8,1.2), "E"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "e"= sample(1:V,n,replace=TRUE) )}#"tgam"=matrix(rnorm((C-1)*V,0,1),(C-1),V),"e"= (rbinom(n,(V-1),.5)+1))} 
+}else{
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "lam"= runif(m,.8,1.2), "E"= runif(n,.8,1.2), "b"= rnorm(n,0,1) )}
+}
 model.file <- gsub(pattern="a\\[i\\] ~ dgamma\\(atau\\[e\\[i\\]\\],atau\\[e\\[i\\]\\]\\)", "a\\[i\\] <- 1", model.file)
 model.file <- gsub(pattern="atau\\[v\\] ~ dgamma\\(4,4\\)", "atau\\[v\\] <- 0", model.file)
 model.file <- gsub(pattern="for \\(c in 2\\:\\(C-1\\)\\)", " #for \\(c in 2\\:\\(C-1\\)\\)", model.file)
@@ -385,13 +413,21 @@ jags.data <- list("Y","n","m","V")
 if(itemdiff==0 ){
 model.file <- mccrm
 jags.params <- c("T","E","a","b","Tmu","Ttau","Emu","Etau","amu","atau","bmu","btau","e","pi")
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1)   )}#, "e"= (rbinom(n,(V-1),.5)+1))}
+if(clusters>1){
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "e"= sample(1:V,n,replace=TRUE)   )}#, "e"= (rbinom(n,(V-1),.5)+1))}
+}else{
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1)  )}
+}
 }
 
 if(itemdiff==1){
 model.file <- mccrmid
 jags.params <- c("T","E","a","b","lam","Tmu","Ttau","Emu","Etau","amu","atau","bmu","btau","lammu","lamtau","e","pi")
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "lam"= runif(m,.8,1.2)   )}#,"e"= (rbinom(n,(V-1),.5)+1))}
+if(clusters>1){
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "lam"= runif(m,.8,1.2), "e"= sample(1:V,n,replace=TRUE)   )}#,"e"= (rbinom(n,(V-1),.5)+1))}
+}else{
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "lam"= runif(m,.8,1.2)  )}
+}
 }
 if(clusters==1){ 
 model.file <- gsub(pattern="pi\\[1\\:V\\] ~ ddirch\\(L\\)", "pi <- 1", model.file)
@@ -435,6 +471,33 @@ Rhat <- function(arr) {
   return(apply(arr,3,Rhat1))
 }
 
+# Rhat1discrete <- function(mat) {
+  # m <- ncol(mat)
+  # n <- nrow(mat)
+  # b <- apply(mat,2,mean)
+  # B <- sum((b-mean(mat))^2)*n/(m-1)
+  # w <- apply(mat,2,var)
+  # W <- mean(w)
+  # s2hat <- (n-1)/n*W + B/n
+  # Vhat <- s2hat + B/m/n 
+  # covWB <- n /m * (cov(w,b^2)-2*mean(b)*cov(w,b))
+  # varV <- (n-1)^2 / n^2 * var(w)/m +
+          # (m+1)^2 / m^2 / n^2 * 2*B^2/(m-1) +
+          # 2 * (m-1)*(n-1)/m/n^2 * covWB
+  # df <- 2 * Vhat^2 / varV
+  # R <- sqrt((df+3) * Vhat / (df+1) / W)
+  # #R <- sqrt(Vhat/W)
+  # return(R)
+# }
+
+# Rhatdiscrete <- function(arr) {
+  # dm <- dim(arr)
+  # if (length(dm)==2) return(Rhat1discrete(arr))
+  # if (dm[2]==1) return(NULL)
+  # if (dm[3]==1) return(Rhat1discrete(arr[,,1]))
+  # return(apply(arr,3,Rhat1discrete))
+# }
+
 acfsum <- function(jagsfit){ 
 ACF <- matrix(-1,dim(jagsfit$BUGSoutput$sims.array)[3],5)
 for(i in 1:dim(jagsfit$BUGSoutput$sims.array)[3]){ 
@@ -455,6 +518,8 @@ jagsfit2 <- jagsfit
 
 nch <- jagsfit2$BUGSoutput$n.chains
 nsamp <- jagsfit2$BUGSoutput$n.keep
+
+if(nch != 1){
 ntruths <- jagsfit2$T
 truths <- array(NA,c(jagsfit2$m,nch,ntruths))
 inds <- jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]]
@@ -496,6 +561,9 @@ jagsfit2$BUGSoutput$sims.array[ ,ch,inds[,t]] <- jagsfit$BUGSoutput$sims.array[ 
 if(chstart==2){jagsfit2$BUGSoutput$sims.array[ ,ch,einds][jagsfit$BUGSoutput$sims.array[ ,ch,einds] == chnind[t,ch]] <- chnind[t,1]}
 if(chstart==1){jagsfit2$BUGSoutput$sims.array[ ,ch,einds][jagsfit$BUGSoutput$sims.array[ ,ch,einds] == t] <- chnind[t,1]}
 }}
+
+}
+
 #jagsfit2$BUGSoutput$sims.array[ ,,einds] <- tmpeinds
 jagsfit2$BUGSoutput$sims.list[["e"]] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]], c(nsamp*nch,jagsfit$n))
 jagsfit2$BUGSoutput$mean$e <- apply(jagsfit2$BUGSoutput$sims.list[["e"]],2,mean)
@@ -506,14 +574,23 @@ jagsfit2$BUGSoutput$sims.list[["D"]] <- array(jagsfit2$BUGSoutput$sims.array[,,j
 jagsfit2$BUGSoutput$sims.list[["g"]] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "g")]]], c(nsamp*nch,jagsfit$n))
 if(itemdiff == 1){jagsfit2$BUGSoutput$sims.list[["lam"]] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "lam")]]], c(nsamp*nch,jagsfit$m))}
 
+jagsfit2$BUGSoutput$sims.list[["z"]] <- array(NA, c(nsamp*nch,jagsfit$m,jagsfit$T))
+jagsfit2$BUGSoutput$sims.list[["dmu"]] <- array(NA, c(nsamp*nch,jagsfit$T))
+jagsfit2$BUGSoutput$sims.list[["dth"]] <- array(NA, c(nsamp*nch,jagsfit$T))
+jagsfit2$BUGSoutput$sims.list[["gmu"]] <- array(NA, c(nsamp*nch,jagsfit$T))
+jagsfit2$BUGSoutput$sims.list[["gth"]] <- array(NA, c(nsamp*nch,jagsfit$T))
+jagsfit2$BUGSoutput$sims.list[["p"]] <- array(NA, c(nsamp*nch,jagsfit$T))
+jagsfit2$BUGSoutput$sims.list[["pi"]] <- array(NA, c(nsamp*nch,jagsfit$T))
+
 for(t in 1:T){
-jagsfit2$BUGSoutput$sims.list[["z"]][,,t] <- array(jagsfit2$BUGSoutput$sims.array[,,inds[1:jagsfit$m,t]], c(nsamp*nch,jagsfit$m))
-jagsfit2$BUGSoutput$sims.list[["dmu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "dmu")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["dth"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "dth")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["gmu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "gmu")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["gth"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "gth")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["p"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "p")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["pi"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "pi")]]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["z"]][,,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]][1:jagsfit$m +((t-1)*jagsfit$m)]], c(nsamp*nch,jagsfit$m))
+#jagsfit2$BUGSoutput$sims.list[["z"]][,,t] <- array(jagsfit2$BUGSoutput$sims.array[,,inds[1:jagsfit$m,t]], c(nsamp*nch,jagsfit$m))
+jagsfit2$BUGSoutput$sims.list[["dmu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "dmu")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["dth"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "dth")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["gmu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "gmu")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["gth"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "gth")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["p"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "p")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["pi"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "pi")]][t]], c(nsamp*nch))
 
 jagsfit2$BUGSoutput$mean$z[,t] <- apply(jagsfit2$BUGSoutput$sims.list[["z"]][,,t],2,mean)
 jagsfit2$BUGSoutput$mean$dmu[t] <- mean(jagsfit2$BUGSoutput$sims.list[["dmu"]][,t])
@@ -523,14 +600,27 @@ jagsfit2$BUGSoutput$mean$gth[t] <- mean(jagsfit2$BUGSoutput$sims.list[["gth"]][,
 jagsfit2$BUGSoutput$mean$p[t] <- mean(jagsfit2$BUGSoutput$sims.list[["p"]][,t])
 jagsfit2$BUGSoutput$mean$pi[t] <- mean(jagsfit2$BUGSoutput$sims.list[["pi"]][,t])
 }
+
+if(nch != 1){
 jagsfit2$BUGSoutput$summary[,1] <- apply(apply(jagsfit2$BUGSoutput$sims.array,c(2,3),mean),2,mean)
 jagsfit2$BUGSoutput$summary[,2] <- apply(apply(jagsfit2$BUGSoutput$sims.array,c(2,3),sd),2,sd)
-
+jagsfit2$BUGSoutput$summary[,3:7] <- t(apply(jagsfit2$BUGSoutput$sims.matrix,2,function(x) quantile(x,probs=c(.025,.25,.50,.75,.975))))
 jagsfit2$BUGSoutput$summary[,8] <- Rhat(jagsfit2$BUGSoutput$sims.array)
 jagsfit2$BUGSoutput$summary[,8][is.nan(jagsfit2$BUGSoutput$summary[,8])] <- 1.000000
-#jagsfit2$BUGSoutput$summary[,8][jagsfit$BUGSoutput$summary[,8] == Inf] <- 1.000000
 
-jagsfit.prealg <<- jagsfit
+dimnames(jagsfit2$BUGSoutput$sims.array) <- list(NULL,NULL,rownames(jagsfit$BUGSoutput$summary))
+dimnames(jagsfit2$BUGSoutput$sims.matrix) <- list(NULL,rownames(jagsfit$BUGSoutput$summary))
+}else{
+
+jagsfit2$BUGSoutput$summary[,1] <- apply(jagsfit2$BUGSoutput$sims.array,2,mean)
+jagsfit2$BUGSoutput$summary[,2] <- apply(jagsfit2$BUGSoutput$sims.array,2,sd)
+jagsfit2$BUGSoutput$summary[,3:7] <- t(apply(jagsfit2$BUGSoutput$sims.matrix,2,function(x) quantile(x,probs=c(.025,.25,.50,.75,.975))))
+jagsfit2$BUGSoutput$summary <- jagsfit2$BUGSoutput$summary[,-c(8,9)]
+dimnames(jagsfit2$BUGSoutput$sims.array) <- list(NULL,NULL,rownames(jagsfit$BUGSoutput$summary))
+dimnames(jagsfit2$BUGSoutput$sims.matrix) <- list(NULL,rownames(jagsfit$BUGSoutput$summary))
+}
+
+#jagsfit.prealg <<- jagsfit
 jagsfit <- jagsfit2; rm(jagsfit2)
 
 return(jagsfit)
@@ -542,6 +632,8 @@ jagsfit2 <- jagsfit
 
 nch <- jagsfit2$BUGSoutput$n.chains
 nsamp <- jagsfit2$BUGSoutput$n.keep
+
+if(nch != 1){
 ntruths <- jagsfit2$V
 truths <- array(NA,c(jagsfit2$m,nch,ntruths))
 inds <- jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "T")]]
@@ -588,6 +680,8 @@ jagsfit2$BUGSoutput$sims.array[ ,ch,inds[,t]] <- jagsfit$BUGSoutput$sims.array[ 
 if(chstart==2){jagsfit2$BUGSoutput$sims.array[ ,ch,einds][jagsfit$BUGSoutput$sims.array[ ,ch,einds] == chnind[t,ch]] <- chnind[t,1]}
 if(chstart==1){jagsfit2$BUGSoutput$sims.array[ ,ch,einds][jagsfit$BUGSoutput$sims.array[ ,ch,einds] == t] <- chnind[t,1]}
 }}
+
+}
 #jagsfit2$BUGSoutput$sims.array[ ,,einds] <- tmpeinds
 jagsfit2$BUGSoutput$sims.list[["e"]] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]], c(nsamp*nch,jagsfit$n))
 jagsfit2$BUGSoutput$mean$e <- apply(jagsfit2$BUGSoutput$sims.list[["e"]],2,mean)
@@ -599,22 +693,35 @@ jagsfit2$BUGSoutput$sims.list[["a"]] <- array(jagsfit2$BUGSoutput$sims.array[,,j
 jagsfit2$BUGSoutput$sims.list[["b"]] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "b")]]], c(nsamp*nch,jagsfit$n))
 if(itemdiff == 1){jagsfit2$BUGSoutput$sims.list[["lam"]] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "lam")]]], c(nsamp*nch,jagsfit$m))}
 
+jagsfit2$BUGSoutput$sims.list[["T"]] <- array(NA, c(nsamp*nch,jagsfit$m,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["Tmu"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["Ttau"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["gam"]] <- array(NA, c(nsamp*nch,jagsfit$C-1,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["Emu"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["Etau"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["amu"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["atau"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["bmu"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["btau"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["pi"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+
 if(jagsfit$C == 2 && length(dim(jagsfit2$BUGSoutput$sims.list[["gam"]])) < 3 ){
 jagsfit2$BUGSoutput$sims.list[["gam"]] <- array(jagsfit2$BUGSoutput$sims.list[["gam"]], c(nsamp*nch,jagsfit$C-1,jagsfit$V))
 }
 
+#jagsfit.prealg <<- jagsfit2
 for(t in 1:jagsfit2$V){
-jagsfit2$BUGSoutput$sims.list[["T"]][,,t] <- array(jagsfit2$BUGSoutput$sims.array[,,inds[1:jagsfit$m,t]], c(nsamp*nch,jagsfit$m))
-jagsfit2$BUGSoutput$sims.list[["Tmu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Tmu")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["Ttau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Ttau")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["gam"]][,,t] <- array(jagsfit2$BUGSoutput$sims.array[,, matrix(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "gam")]],jagsfit2$C-1,jagsfit2$V)[,t]], c(nsamp*nch,jagsfit$C-1))
-jagsfit2$BUGSoutput$sims.list[["Emu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Emu")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["Etau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Etau")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["amu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "amu")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["atau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "atau")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["bmu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "bmu")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["btau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "btau")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["pi"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "pi")]]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["T"]][,,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "T")]][1:jagsfit$m +((t-1)*jagsfit$m)]], c(nsamp*nch,jagsfit$m))
+jagsfit2$BUGSoutput$sims.list[["Tmu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Tmu")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["Ttau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Ttau")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["gam"]][,,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "gam")]][1:(jagsfit$C-1) +((t-1)*(jagsfit$C-1))]], c(nsamp*nch,jagsfit$C-1))
+jagsfit2$BUGSoutput$sims.list[["Emu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Emu")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["Etau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Etau")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["amu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "amu")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["atau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "atau")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["bmu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "bmu")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["btau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "btau")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["pi"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "pi")]][t]], c(nsamp*nch))
 
 jagsfit2$BUGSoutput$mean$T[,t] <- apply(jagsfit2$BUGSoutput$sims.list[["T"]][,,t],2,mean)
 jagsfit2$BUGSoutput$mean$Tmu[t] <- mean(jagsfit2$BUGSoutput$sims.list[["Tmu"]][,t])
@@ -630,13 +737,26 @@ jagsfit2$BUGSoutput$mean$bmu[t] <- mean(jagsfit2$BUGSoutput$sims.list[["bmu"]][,
 jagsfit2$BUGSoutput$mean$btau[t] <- mean(jagsfit2$BUGSoutput$sims.list[["btau"]][,t])
 jagsfit2$BUGSoutput$mean$pi[t] <- mean(jagsfit2$BUGSoutput$sims.list[["pi"]][,t])
 }
+
+if(nch != 1){
 jagsfit2$BUGSoutput$summary[,1] <- apply(apply(jagsfit2$BUGSoutput$sims.array,c(2,3),mean),2,mean)
 jagsfit2$BUGSoutput$summary[,2] <- apply(apply(jagsfit2$BUGSoutput$sims.array,c(2,3),sd),2,sd)
-
+jagsfit2$BUGSoutput$summary[,3:7] <- t(apply(jagsfit2$BUGSoutput$sims.matrix,2,function(x) quantile(x,probs=c(.025,.25,.50,.75,.975))))
 jagsfit2$BUGSoutput$summary[,8] <- Rhat(jagsfit2$BUGSoutput$sims.array)
 jagsfit2$BUGSoutput$summary[,8][is.nan(jagsfit2$BUGSoutput$summary[,8])] <- 1.000000
+dimnames(jagsfit2$BUGSoutput$sims.array) <- list(NULL,NULL,rownames(jagsfit$BUGSoutput$summary))
+dimnames(jagsfit2$BUGSoutput$sims.matrix) <- list(NULL,rownames(jagsfit$BUGSoutput$summary))
+}else{
 
-jagsfit.prealg <<- jagsfit
+jagsfit2$BUGSoutput$summary[,1] <- apply(jagsfit2$BUGSoutput$sims.array,2,mean)
+jagsfit2$BUGSoutput$summary[,2] <- apply(jagsfit2$BUGSoutput$sims.array,2,sd)
+jagsfit2$BUGSoutput$summary[,3:7] <- t(apply(jagsfit2$BUGSoutput$sims.matrix,2,function(x) quantile(x,probs=c(.025,.25,.50,.75,.975))))
+jagsfit2$BUGSoutput$summary <- jagsfit2$BUGSoutput$summary[,-c(8,9)]
+dimnames(jagsfit2$BUGSoutput$sims.array) <- list(NULL,NULL,rownames(jagsfit$BUGSoutput$summary))
+dimnames(jagsfit2$BUGSoutput$sims.matrix) <- list(NULL,rownames(jagsfit$BUGSoutput$summary))
+}
+
+#jagsfit.prealg <<- jagsfit
 jagsfit <- jagsfit2; rm(jagsfit2)
 
 return(jagsfit)
@@ -649,6 +769,8 @@ jagsfit2 <- jagsfit
 
 nch <- jagsfit2$BUGSoutput$n.chains
 nsamp <- jagsfit2$BUGSoutput$n.keep
+
+if(nch != 1){
 ntruths <- jagsfit2$V
 truths <- array(NA,c(jagsfit2$m,nch,ntruths))
 inds <- jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "T")]]
@@ -696,6 +818,9 @@ jagsfit2$BUGSoutput$sims.array[ ,ch,inds[,t]] <- jagsfit$BUGSoutput$sims.array[ 
 if(chstart==2){jagsfit2$BUGSoutput$sims.array[ ,ch,einds][jagsfit$BUGSoutput$sims.array[ ,ch,einds] == chnind[t,ch]] <- chnind[t,1]}
 if(chstart==1){jagsfit2$BUGSoutput$sims.array[ ,ch,einds][jagsfit$BUGSoutput$sims.array[ ,ch,einds] == t] <- chnind[t,1]}
 }}
+
+}
+
 #jagsfit2$BUGSoutput$sims.array[ ,,einds] <- tmpeinds
 jagsfit2$BUGSoutput$sims.list[["e"]] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]], c(nsamp*nch,jagsfit$n))
 jagsfit2$BUGSoutput$mean$e <- apply(jagsfit2$BUGSoutput$sims.list[["e"]],2,mean)
@@ -707,17 +832,28 @@ jagsfit2$BUGSoutput$sims.list[["a"]] <- array(jagsfit2$BUGSoutput$sims.array[,,j
 jagsfit2$BUGSoutput$sims.list[["b"]] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "b")]]], c(nsamp*nch,jagsfit$n))
 if(itemdiff == 1){jagsfit2$BUGSoutput$sims.list[["lam"]] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "lam")]]], c(nsamp*nch,jagsfit$m))}
 
+jagsfit2$BUGSoutput$sims.list[["T"]] <- array(NA, c(nsamp*nch,jagsfit$m,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["Tmu"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["Ttau"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["Emu"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["Etau"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["amu"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["atau"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["bmu"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["btau"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+jagsfit2$BUGSoutput$sims.list[["pi"]] <- array(NA, c(nsamp*nch,jagsfit$V))
+
 for(t in 1:jagsfit2$V){
-jagsfit2$BUGSoutput$sims.list[["T"]][,,t] <- array(jagsfit2$BUGSoutput$sims.array[,,inds[1:jagsfit$m,t]], c(nsamp*nch,jagsfit$m))
-jagsfit2$BUGSoutput$sims.list[["Tmu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Tmu")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["Ttau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Ttau")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["Emu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Emu")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["Etau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Etau")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["amu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "amu")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["atau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "atau")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["bmu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "bmu")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["btau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "btau")]]], c(nsamp*nch))
-jagsfit2$BUGSoutput$sims.list[["pi"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "pi")]]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["T"]][,,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "T")]][1:jagsfit$m +((t-1)*jagsfit$m)]], c(nsamp*nch,jagsfit$m))
+jagsfit2$BUGSoutput$sims.list[["Tmu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Tmu")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["Ttau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Ttau")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["Emu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Emu")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["Etau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "Etau")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["amu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "amu")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["atau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "atau")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["bmu"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "bmu")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["btau"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "btau")]][t]], c(nsamp*nch))
+jagsfit2$BUGSoutput$sims.list[["pi"]][,t] <- array(jagsfit2$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "pi")]][t]], c(nsamp*nch))
 
 jagsfit2$BUGSoutput$mean$T[,t] <- apply(jagsfit2$BUGSoutput$sims.list[["T"]][,,t],2,mean)
 jagsfit2$BUGSoutput$mean$Tmu[t] <- mean(jagsfit2$BUGSoutput$sims.list[["Tmu"]][,t])
@@ -731,31 +867,111 @@ jagsfit2$BUGSoutput$mean$btau[t] <- mean(jagsfit2$BUGSoutput$sims.list[["btau"]]
 jagsfit2$BUGSoutput$mean$pi[t] <- mean(jagsfit2$BUGSoutput$sims.list[["pi"]][,t])
 }
 
-
+if(nch != 1){
 jagsfit2$BUGSoutput$summary[,1] <- apply(apply(jagsfit2$BUGSoutput$sims.array,c(2,3),mean),2,mean)
 jagsfit2$BUGSoutput$summary[,2] <- apply(apply(jagsfit2$BUGSoutput$sims.array,c(2,3),sd),2,sd)
-
+jagsfit2$BUGSoutput$summary[,3:7] <- t(apply(jagsfit2$BUGSoutput$sims.matrix,2,function(x) quantile(x,probs=c(.025,.25,.50,.75,.975))))
 jagsfit2$BUGSoutput$summary[,8] <- Rhat(jagsfit2$BUGSoutput$sims.array)
 jagsfit2$BUGSoutput$summary[,8][is.nan(jagsfit2$BUGSoutput$summary[,8])] <- 1.000000
+dimnames(jagsfit2$BUGSoutput$sims.array) <- list(NULL,NULL,rownames(jagsfit$BUGSoutput$summary))
+dimnames(jagsfit2$BUGSoutput$sims.matrix) <- list(NULL,rownames(jagsfit$BUGSoutput$summary))
+}else{
 
-jagsfit.prealg <<- jagsfit
+jagsfit2$BUGSoutput$summary[,1] <- apply(jagsfit2$BUGSoutput$sims.array,2,mean)
+jagsfit2$BUGSoutput$summary[,2] <- apply(jagsfit2$BUGSoutput$sims.array,2,sd)
+jagsfit2$BUGSoutput$summary[,3:7] <- t(apply(jagsfit2$BUGSoutput$sims.matrix,2,function(x) quantile(x,probs=c(.025,.25,.50,.75,.975))))
+jagsfit2$BUGSoutput$summary <- jagsfit2$BUGSoutput$summary[,-c(8,9)]
+dimnames(jagsfit2$BUGSoutput$sims.array) <- list(NULL,NULL,rownames(jagsfit$BUGSoutput$summary))
+dimnames(jagsfit2$BUGSoutput$sims.matrix) <- list(NULL,rownames(jagsfit$BUGSoutput$summary))
+}
+
+#jagsfit.prealg <<- jagsfit
 jagsfit <- jagsfit2; rm(jagsfit2)
 
 return(jagsfit)
 }
 
-
 message("\n ...Inference complete, data is saved as 'jagsfit' \n")
-message(" ...Performing final calculations \n")
+message(" ...Performing final calculations")
 #message(paste("Number of Rhats above 1.05 : ",sum(jagsfit$BUGSoutput$summary[,8]>1.05),"/",length(jagsfit$BUGSoutput$summary[,8]),"\nNumber of Rhats above 1.10 : ",sum(jagsfit$BUGSoutput$summary[,8]>1.1),"/",length(jagsfit$BUGSoutput$summary[,8]),sep=""))
 if(jagsfit$BUGSoutput$n.chains > 1){
 jagsfit$BUGSoutput$summary[,8] <- Rhat(jagsfit$BUGSoutput$sims.array)
 jagsfit$BUGSoutput$summary[,8][is.nan(jagsfit$BUGSoutput$summary[,8])] <- 1.000000
-message(paste("Number of Rhats above 1.10 : ",sum(jagsfit$BUGSoutput$summary[,8]>1.10),"/",length(jagsfit$BUGSoutput$summary[,8]),"\nNumber of Rhats above 1.05 : ",sum(jagsfit$BUGSoutput$summary[,8]>1.05),"/",length(jagsfit$BUGSoutput$summary[,8]),sep=""))
+#message(paste("Number of Rhats above 1.10 : ",sum(jagsfit$BUGSoutput$summary[,8]>1.10),"/",length(jagsfit$BUGSoutput$summary[,8]),"\nNumber of Rhats above 1.05 : ",sum(jagsfit$BUGSoutput$summary[,8]>1.05),"/",length(jagsfit$BUGSoutput$summary[,8]),sep=""))
+if(whmodel== "GCM"){
+message(paste("\nFor Continuous Parameters"))
+message(paste("Number of Rhats above 1.10 : ",sum(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]],jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]]),8]>1.10),"/",length(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]],jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]]),8]),"\nNumber of Rhats above 1.05 : ",sum(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]],jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]]),8]>1.05),"/",length(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]],jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]]),8]),sep=""))
+}else{
+message(paste("Number of Rhats above 1.10 : ",sum(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]),8]>1.10),"/",length(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]),8]),"\nNumber of Rhats above 1.05 : ",sum(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]),8]>1.10),"/",length(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]),8]),sep=""))
+}
+}
+
+if(clusters>1 && jagsfit$BUGSoutput$n.chains == 1){
+#Some note whether the chain contains fewer mixtures than requested
+
+Mode <<- function(x) { ux <- unique(x); ux[which.max(tabulate(match(x, ux)))] }
+tmp <- unique(apply(jagsfit$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]],c(2),Mode))
+#print(tmp)
+if(length(tmp) == 1){
+message(paste("\n ...This chain has ",length(tmp)," culture rather than the ",clusters," cultures requested", sep=""))
+message(paste("\n ...Try running the inference again",sep="" ))
+}
+if(length(tmp) != 1 && length(tmp) < clusters){
+message(paste("\n ...This chain has ",tmp," cultures rather than the ",clusters," cultures requested", sep=""))
+message(paste("\n ...Try running the inference again",sep="" ))
+}
 }
 
 if(clusters>1 && jagsfit$BUGSoutput$n.chains > 1){
 message("\n ...More than 1 culture applied with more than 1 chain")
+
+einds <- jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]
+
+Mode <<- function(x) { ux <- unique(x); ux[which.max(tabulate(match(x, ux)))] }
+
+tmp <- apply(apply(jagsfit$BUGSoutput$sims.array[,,jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]],c(2,3),Mode),1,unique)
+#print(tmp)
+
+chntoremove <- NULL
+if(is.list(tmp)){
+for(i in 1:jagsfit$BUGSoutput$n.chains){
+if(length(tmp[[i]]) != clusters){chntoremove <- c(chntoremove,i)}
+}
+}
+
+if(length(dim(tmp))==2){
+for(i in 1:jagsfit$BUGSoutput$n.chains){
+if(length(tmp[,i]) != clusters){chntoremove <- c(chntoremove,i)}
+}
+}
+
+if(is.null(dim(tmp)) && !is.list(tmp)){chntoremove <- c(1:jagsfit$BUGSoutput$n.chains)}
+
+
+if(length(chntoremove)>0){
+if(length(chntoremove) < jagsfit$BUGSoutput$n.chains){
+
+if(length(chntoremove)==1){
+message(paste("\n ...",length(chntoremove)," chain out of ",jagsfit$BUGSoutput$n.chains," had fewer than ",clusters," cultures requested",sep=""))
+message(paste("\n ...", "removing the ", length(chntoremove)," chain", sep=""))
+}else{
+message(paste("\n ...",length(chntoremove)," chains out of ",jagsfit$BUGSoutput$n.chains," had fewer than ",clusters," cultures requested",sep=""))
+message(paste("\n ...", "removing these ", length(chntoremove)," chains", sep=""))
+}
+
+jagsfit$BUGSoutput$n.chains <- jagsfit$BUGSoutput$n.chains-length(chntoremove)
+jagsfit$BUGSoutput$n.chain <- jagsfit$BUGSoutput$n.chains
+jagsfit$BUGSoutput$n.sims <- jagsfit$BUGSoutput$n.chains*jagsfit$BUGSoutput$n.keep
+if(jagsfit$BUGSoutput$n.chain == 1){
+jagsfit$BUGSoutput$sims.array <- array(jagsfit$BUGSoutput$sims.array[,-chntoremove,], c(dim(jagsfit$BUGSoutput$sims.array)[1],1,dim(jagsfit$BUGSoutput$sims.array)[3]))
+}else{jagsfit$BUGSoutput$sims.array <- jagsfit$BUGSoutput$sims.array[,-chntoremove,]}
+
+}else{
+message(paste("\n ...All chains out of ",jagsfit$BUGSoutput$n.chains," had fewer than ",clusters," cultures requested", sep=""))
+message(paste("\n ...Try running the inference again",sep="" ))
+}
+}
+
 message("\n ...Computing the most-consistent labeling across chains")
 
 
@@ -816,11 +1032,75 @@ ind <- rank(-apply(tmeans,2,sd))
 }
 
 if(jagsfit$BUGSoutput$n.chains > 1){
-message(paste("Number of Rhats above 1.10 : ",sum(jagsfit$BUGSoutput$summary[,8]>1.10),"/",length(jagsfit$BUGSoutput$summary[,8]),"\nNumber of Rhats above 1.05 : ",sum(jagsfit$BUGSoutput$summary[,8]>1.05),"/",length(jagsfit$BUGSoutput$summary[,8]),sep=""))
+#message(paste("Number of Rhats above 1.10 : ",sum(jagsfit$BUGSoutput$summary[,8]>1.10),"/",length(jagsfit$BUGSoutput$summary[,8]),"\nNumber of Rhats above 1.05 : ",sum(jagsfit$BUGSoutput$summary[,8]>1.05),"/",length(jagsfit$BUGSoutput$summary[,8]),sep=""))
+message(paste("\nFor Continuous Parameters:"))
+if(whmodel== "GCM"){
+message(paste("Number of Rhats above 1.10 : ",sum(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]],jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]]),8]>1.10),"/",length(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]],jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]]),8]),"\nNumber of Rhats above 1.05 : ",sum(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]],jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]]),8]>1.05),"/",length(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]],jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]]),8]),sep=""))
+}else{
+message(paste("Number of Rhats above 1.10 : ",sum(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]),8]>1.10),"/",length(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]),8]),"\nNumber of Rhats above 1.05 : ",sum(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]),8]>1.10),"/",length(jagsfit$BUGSoutput$summary[-c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]]),8]),sep=""))
+}
+}
+if(jagsfit$BUGSoutput$n.chains > 1){
+message(paste("\nFor Discrete Parameters:"))
+message(paste("Type 'dtraceplot()' to see their trace plots"))
+alltraceplot <<- function(){traceplot(jagsfit,mfrow=c(4,4))}
+dtraceplot <<- function(){
+if(whmodel == "GCM"){
+if(jagsfit$T == 1){
+jagsfit2 <- jagsfit
+jagsfit2$BUGSoutput$sims.array <- jagsfit2$BUGSoutput$sims.array[,,c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]])]
+traceplot(jagsfit2,mfrow=c(4,4))
+}else{
+jagsfit2 <- jagsfit
+jagsfit2$BUGSoutput$sims.array <- jagsfit2$BUGSoutput$sims.array[,,c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]],jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]])]
+traceplot(jagsfit2,mfrow=c(4,4))
+}
+}else{
+if(jagsfit$V == 1){
+message("\n There are no discrete nodes in this inference")
+return()
+}else{
+jagsfit2 <- jagsfit
+jagsfit2$BUGSoutput$sims.array <- jagsfit2$BUGSoutput$sims.array[,,c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]])]
+traceplot(jagsfit2,mfrow=c(4,4))
+}
+}
+}
+}
+
+}else{
+
+if(whmodel == "GCM" && jagsfit$BUGSoutput$n.chains > 1){
+message(paste("\nFor Discrete Parameters:"))
+message(paste("Type 'dtraceplot()' to see their trace plots"))
+alltraceplot <<- function(){traceplot(jagsfit,mfrow=c(4,4))}
+dtraceplot <<- function(){
+if(whmodel == "GCM"){
+if(jagsfit$T == 1){
+jagsfit2 <- jagsfit
+jagsfit2$BUGSoutput$sims.array <- jagsfit2$BUGSoutput$sims.array[,,c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]])]
+traceplot(jagsfit2,mfrow=c(4,4))
+}else{
+jagsfit2 <- jagsfit
+jagsfit2$BUGSoutput$sims.array <- jagsfit2$BUGSoutput$sims.array[,,c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "z")]],jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]])]
+traceplot(jagsfit2,mfrow=c(4,4))
+}
+}else{
+if(jagsfit$V == 1){
+message("\n There are no discrete nodes in this inference")
+return()
+}else{
+jagsfit2 <- jagsfit
+jagsfit2$BUGSoutput$sims.array <- jagsfit2$BUGSoutput$sims.array[,,c(jagsfit$BUGSoutput$long.short[[which(jagsfit$BUGSoutput$root.short == "e")]])]
+traceplot(jagsfit2,mfrow=c(4,4))
+}
+}
+}
 }
 
 }
 
+message("\n ...Calculating DIC")
 #DIC Calculations
 jagsfit$BUGSoutput$pD <- var(jagsfit$BUGSoutput$sims.list$deviance[,1])/2
 if(whmodel=="GCM"){
@@ -911,9 +1191,6 @@ jagsfit$BUGSoutput$mean$deviance <- mean(jagsfit$BUGSoutput$sims.list$deviance) 
 jagsfit$BUGSoutput$pD <- var(jagsfit$BUGSoutput$sims.list$deviance[,1])/2  #pD, variance of the deviance, divided by 2
 jagsfit$BUGSoutput$DIC <- jagsfit$BUGSoutput$mean$deviance + jagsfit$BUGSoutput$pD
 }
-
-#message(paste("DIC : ",round(jagsfit1$BUGSoutput$DIC,2),"   pD : ",round(jagsfit1$BUGSoutput$pD,2),sep=""))
-#print(var(sort(jagsfit1$BUGSoutput$sims.list$deviance))/2); print(mean(jagsfit1$BUGSoutput$sims.list$deviance))
 
 message(paste("DIC : ",round(jagsfit$BUGSoutput$DIC,2),"   pD : ",round(jagsfit$BUGSoutput$pD,2),sep=""))
 #print(var(sort(jagsfit$BUGSoutput$sims.list$deviance))/2); print(mean(jagsfit$BUGSoutput$sims.list$deviance))
@@ -1464,7 +1741,13 @@ if (savedir == 0 && !file.exists("CCTpack")){dir.create(file.path(getwd(), "CCTp
 savedir <- file.path(getwd(),"CCTpack","CCTpackdata.Rdata")
 } 
 
+if(substr(savedir, nchar(savedir)-6+1, nchar(savedir)) != ".Rdata"){
+savedir <- paste(savedir,".Rdata",sep="")
+}
+
 message("\n ...Exporting results \n")
+#save(jagsfit,file=file.path(getwd(),) )
+write.csv(jagsfit$BUGSoutput$summary,file.path(gsub(".Rdata","posterior.csv",savedir)))
 save(jagsfit,file=file.path(savedir))
 
 if(exists("checksrunbefore") == TRUE){
@@ -1755,19 +2038,20 @@ mccrm <-
  for (v in 1:V){
   L[v] <- 1 
  #Tmu[v] <- 0
-  Tmu[v] ~ dnorm(0,.001)
-  Ttau[v] ~ dgamma(0.01,0.01)
- #Ttau[v] ~ dgamma(1,.1)
- #Emu[v] ~ dgamma(1,1)
- #Etau[v] ~ dgamma(1,1)
-  Emu[v] ~ dgamma(0.01,0.01)
-  Etau[v] ~ dgamma(0.01,0.01)
+ #Tmu[v] ~ dnorm(0,.001)
+  Tmu[v] ~ dnorm(0,.1)
+ #Ttau[v] ~ dgamma(0.01,0.01)
+ Ttau[v] ~ dgamma(1,.1)
+ Emu[v] ~ dgamma(1,1)
+ Etau[v] ~ dgamma(1,1)
+  #Emu[v] ~ dgamma(0.01,0.01)
+  #Etau[v] ~ dgamma(0.01,0.01)
   amu[v] <- 1
- #atau[v] ~ dgamma(4,4)
-  atau[v] ~ dgamma(0.01,0.01)
+ atau[v] ~ dgamma(4,4)
+ # atau[v] ~ dgamma(0.01,0.01)
   bmu[v] <- 0
- #btau[v] ~ dgamma(4,4)
-  btau[v] ~ dgamma(0.01,0.01)
+ btau[v] ~ dgamma(4,4)
+ # btau[v] ~ dgamma(0.01,0.01)
 }}"
 mccrmid <-
 "model{
