@@ -1,7 +1,8 @@
-a52e2e4e4a4066322e091b84b2037316 *DESCRIPTION
+66df19239c0a797ed97476c2bcbf1f8c *DESCRIPTION
 df390c53434517b304ac5db487184641 *NAMESPACE
-5d1f62b0d4b09da2d6efa083225bb135 *R/cctgui.r
+be853255d94267554cc988f46533e8d5 *R/cctgui.r
 eed61f0b9b4540d249931311cc666376 *data/testdat.csv.gz
-888542d05a23512a437d26b6e12ae3a5 *man/CCTpack-package.Rd
-b302ec6aeace065e51b76880594953a8 *man/cctgui.Rd
+eb4a9084ff65e612ffddddf12ef63be3 *inst/CITATION
+f4d4a6ae9c9352550578e033d08fda8e *man/CCTpack-package.Rd
+555c6f9abcf40f5e0f6d94cb2540d3b3 *man/cctgui.Rd
 bbed319dbfb11969839c1586d77384db *man/testdat.Rd

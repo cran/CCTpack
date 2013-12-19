@@ -23,8 +23,8 @@ is considered to be in its "BETA" version; improvements and bug fixes are planne
 \tabular{ll}{
 Package: \tab CCTpack\cr
 Type: \tab Package\cr
-Version: \tab 0.91 \cr
-Date: \tab 2013-10-04\cr
+Version: \tab 0.92 \cr
+Date: \tab 2013-12-19\cr
 License: \tab GPL (>= 2) \cr
 }
 1. Make sure you have JAGS installed \cr
@@ -37,11 +37,11 @@ Royce Anders
 Maintainer: Royce Anders <andersr@uci.edu>
 }
 \references{
-Anders, R., & Batchelder, W. H. (in press). Cultural consensus theory for the ordinal data case. Psychometrika. \cr \cr
+Anders, R., & Batchelder, W. H. (2013). Cultural consensus theory for the ordinal data case. Psychometrika. \cr \cr
 Anders, R., & Batchelder, W. H. (2012). Cultural consensus theory for multiple consensus truths. Journal for Mathematical Psychology, 56 , 452-469. \cr \cr
 Batchelder, W. H., & Anders, R. (2012). Cultural consensus theory: comparing different concepts of cultural truth. Journal of Mathematical Psychology, 56,
 316-332. \cr \cr
-Oravecz, Z., Anders, R., & Batchelder, W. H. (in press). Hierarchical Bayesian modeling for test theory without an answer key. Psychometrika. \cr \cr
+Oravecz, Z., Anders, R., & Batchelder, W. H. (2013). Hierarchical Bayesian modeling for test theory without an answer key. Psychometrika. \cr \cr
 Anders, R., Oravecz, Z., & Batchelder. Cultural consensus theory, latent appraisal model for continuous responses.
 }
 %\keyword{

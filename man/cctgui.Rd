@@ -6,6 +6,8 @@ The CCT GUI
 \description{
 1. Type 'cctgui()' in the R command prompt to start the CCT GUI \cr
 2. Click "Load data" (data must be in csv format as a .csv or .txt file) \cr
+      data format: respondents (rows) by items (columns), csv format, no row/column names necessary \cr
+	               the models can handle missing data, missing data should be input as NA \cr
 3. Verify that the number of respondents, items, and data type the GUI detects is correct. \cr
 4. Check the number of significant factors in the scree plot \cr 
 5. Use this as "the number of cultures to assume," and select an item difficulty option \cr
@@ -50,6 +52,9 @@ cctgui()
 #The Inference results are included in the object 'jagsfit'
 #Type 'jagsfit' in the R prompt to see the summary, 
 #   type 'str(jagsfit)' to see what the object contains
+
+##Note: if an insufficient memory message occurs, you can increase the
+##memory allocation by the command 'memory.limit(10000)'  (or as high as needed)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
