@@ -24,7 +24,7 @@ cctgui()
 %\details{
 %}
 \value{
-All information will be saved in the 'jagsfit' object. This is in the same structure as the 'jagsfit' object returned by the function jags(), which utilizes the 'rjags' and 'R2jags' packages. 
+All information will be saved in the 'cctfit' object. This is in the same structure as the 'jagsfit' object returned by the function jags(), which utilizes the 'rjags' and 'R2jags' packages. 
 }
 %\references{
 %}
@@ -49,12 +49,12 @@ cctgui()
 #Note that the model satisfies both checks in the plots shown
 #Proceed to inspect the inference results by clicking "Plot Results"
 #Click "Export Results" to save the plot and the inference results"
-#The Inference results are included in the object 'jagsfit'
-#Type 'jagsfit' in the R prompt to see the summary, 
-#   type 'str(jagsfit)' to see what the object contains
+#The Inference results are included in the object 'cctfit'
+#Type 'cctfit' in the R prompt to see the summary, 
+#   type 'str(cctfit)' to see what the object contains
 
 ##Note: if an insufficient memory message occurs, you can increase the
-##memory allocation by the command 'memory.limit(10000)'  (or as high as needed)
+##memory allocation by the command 'memory.limit(25000)'  (or as high as needed)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
