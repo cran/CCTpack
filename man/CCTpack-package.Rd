@@ -23,8 +23,8 @@ is considered to be in its "BETA" version; improvements and bug fixes are planne
 \tabular{ll}{
 Package: \tab CCTpack\cr
 Type: \tab Package\cr
-Version: \tab 0.99 \cr
-Date: \tab 2014-01-20\cr
+Version: \tab 1.00 \cr
+Date: \tab 2014-02-02\cr
 License: \tab GPL (>= 2) \cr
 }
 1. Make sure you have JAGS installed \cr

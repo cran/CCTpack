@@ -1227,6 +1227,11 @@ traceplot(cctfit2,mfrow=c(4,4))
 ######################
 message("\n ...Calculating DIC")
 cctfit$BUGSoutput$pD <- var(cctfit$BUGSoutput$sims.list$deviance[,1])/2
+nsimstouse <- min(cctfit$BUGSoutput$n.sims,1000)
+ind <- sample(1:cctfit$BUGSoutput$n.sims,nsimstouse)
+
+storelik <- 0
+
 if(cctfit$whmodel=="GCM"){
 
 if(cctfit$V == 1){
@@ -1249,6 +1254,9 @@ cctfit$BUGSoutput$sims.list$lam <- array(.5,c(cctfit$BUGSoutput$n.sims,cctfit$m,
 }
 
 cctfit$BUGSoutput$sims.list$D <- array(-1,c(cctfit$BUGSoutput$n.sims,cctfit$n,cctfit$m))
+
+storefulllik <- 0
+if(storefulllik == 1){
 cctfit$Lik  <- array(NA, c(cctfit$n,cctfit$m,cctfit$BUGSoutput$n.sims));
 for(samp in 1:cctfit$BUGSoutput$n.sims){
 cctfit$BUGSoutput$sims.list[["D"]][samp,,] <- (cctfit$BUGSoutput$sims.list[["th"]][samp,]*t(1-cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])) / 
@@ -1260,12 +1268,34 @@ if(cctfit$mval==1){cctfit$Lik[cbind(datob$thena,samp)] <- 1}
 }
  
 cctfit$BUGSoutput$sims.list$deviance <- array(-2*apply(log(cctfit$Lik),3,sum),c(cctfit$BUGSoutput$n.sims,1))
+}else{
+cctfit$LogLik  <- array(NA, c(cctfit$BUGSoutput$n.sims));
+for(samp in 1:cctfit$BUGSoutput$n.sims){
+Dtmp <- (cctfit$BUGSoutput$sims.list[["th"]][samp,]*t(1-cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])) / 
+( (cctfit$BUGSoutput$sims.list[["th"]][samp,]*t(1-cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])) + 
+((1-cctfit$BUGSoutput$sims.list[["th"]][samp,])*t(cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])) ) 
+
+Liktmp <- t( ( (t(Dtmp)+(t(1-Dtmp)%*%diag(cctfit$BUGSoutput$sims.list[["g"]][samp,])))^(t(cctfit$data[,])*cctfit$BUGSoutput$sims.list[["Z"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]]))*(t(1-Dtmp)%*%diag(cctfit$BUGSoutput$sims.list[["g"]][samp,]))^(t(cctfit$data[,])*(1-cctfit$BUGSoutput$sims.list[["Z"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]]))*(t(1-Dtmp)%*%diag(1-cctfit$BUGSoutput$sims.list[["g"]][samp,]))^((1-t(cctfit$data[,]))*cctfit$BUGSoutput$sims.list[["Z"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])*(t(Dtmp)+t(1-Dtmp)%*%diag(1-cctfit$BUGSoutput$sims.list[["g"]][samp,]))^((1-t(cctfit$data[,]))*(1-cctfit$BUGSoutput$sims.list[["Z"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]]))  )
+if(cctfit$mval==1){Liktmp[datob$thena] <- 1}
+
+cctfit$LogLik[samp] <- sum(log(Liktmp))
+}
+
+cctfit$BUGSoutput$sims.list$deviance <- array(-2*(cctfit$LogLik),c(cctfit$BUGSoutput$n.sims,1))
+}
+
 cctfit$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short == "deviance")]]] <- array(cctfit$BUGSoutput$sims.list$deviance,c(cctfit$BUGSoutput$n.keep,cctfit$BUGSoutput$n.chains))
 cctfit$BUGSoutput$sims.matrix[,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short == "deviance")]]] <- cctfit$BUGSoutput$sims.list$deviance[,1]
  
+if(sum(cctfit$BUGSoutput$sims.list$deviance == Inf) >0){ 
+cctfit$BUGSoutput$mean$deviance <- mean(cctfit$BUGSoutput$sims.list$deviance[cctfit$BUGSoutput$sims.list$deviance != Inf,1],na.rm=TRUE) #Dbar, also known as deviance
+cctfit$BUGSoutput$pD <- var(cctfit$BUGSoutput$sims.list$deviance[cctfit$BUGSoutput$sims.list$deviance != Inf,1],na.rm=TRUE)/2  #pD, variance of the deviance, divided by 2
+cctfit$BUGSoutput$DIC <- cctfit$BUGSoutput$mean$deviance + cctfit$BUGSoutput$pD
+}else{
 cctfit$BUGSoutput$mean$deviance <- mean(cctfit$BUGSoutput$sims.list$deviance) #Dbar, also known as deviance
 cctfit$BUGSoutput$pD <- var(cctfit$BUGSoutput$sims.list$deviance[,1])/2  #pD, variance of the deviance, divided by 2
 cctfit$BUGSoutput$DIC <- cctfit$BUGSoutput$mean$deviance + cctfit$BUGSoutput$pD
+}
 
 }
 
@@ -1290,6 +1320,10 @@ cctfit$BUGSoutput$sims.list$lam <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$m,c
 }
 }
 
+
+storefulllik <- 0
+if(storefulllik == 1){
+
 cctfit$BUGSoutput$sims.list$tau <- array(-1,c(cctfit$BUGSoutput$n.sims,cctfit$n,cctfit$m))
 cctfit$ppdelta <- array(NA, c(cctfit$n,cctfit$C-1,cctfit$BUGSoutput$n.sims))
 cctfit$ppdeltafull <- array(NA, c(cctfit$n,cctfit$C+1,cctfit$BUGSoutput$n.sims))
@@ -1309,12 +1343,42 @@ if(cctfit$mval==1){cctfit$Lik[cbind(datob$thena,samp)] <- 1}
 if(cctfit$C==2){cctfit$Lik[cctfit$Lik == 0] <- 0.001}
 
 cctfit$BUGSoutput$sims.list$deviance <- array(-2*apply(log(cctfit$Lik),3,sum),c(cctfit$BUGSoutput$n.sims,1))
+}else{
+cctfit$LogLik  <- array(NA, c(cctfit$BUGSoutput$n.sims));
+Liktmp <- array(NA, c(cctfit$n,cctfit$m))
+deltatmp <- array(NA, c(cctfit$n,cctfit$C+1))
+deltatmp[,1] <- -100000; deltatmp[,cctfit$C+1] <- 1000000
+
+for(samp in 1:cctfit$BUGSoutput$n.sims){
+tautmp <- cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(1/cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])
+deltatmp[,2:(cctfit$C)] <- cctfit$BUGSoutput$sims.list[["a"]][samp,]*t(cctfit$BUGSoutput$sims.list[["gam"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])+cctfit$BUGSoutput$sims.list[["b"]][samp,]
+
+for(i in 1:cctfit$n){
+Liktmp[i,] <-  pnorm(deltatmp[i,cctfit$data[i,]+1] ,cctfit$BUGSoutput$sims.list[["T"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,i]],tautmp[i,]^-.5)-pnorm(deltatmp[i,cctfit$data[i,]] ,cctfit$BUGSoutput$sims.list[["T"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,i]],tautmp[i,]^-.5)
+if(cctfit$mval==1){cctfit$Lik[datob$thena] <- 1}
+}
+if(cctfit$C==2){Liktmp[Liktmp == 0] <- 0.001}
+
+cctfit$LogLik[samp] <- sum(log(Liktmp))
+}
+
+cctfit$BUGSoutput$sims.list$deviance <- array(-2*(cctfit$LogLik),c(cctfit$BUGSoutput$n.sims,1))
+}
+
 cctfit$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short == "deviance")]]] <- array(cctfit$BUGSoutput$sims.list$deviance,c(cctfit$BUGSoutput$n.keep,cctfit$BUGSoutput$n.chains))
 cctfit$BUGSoutput$sims.matrix[,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short == "deviance")]]] <- cctfit$BUGSoutput$sims.list$deviance[,1]
  
+ 
+if(sum(cctfit$BUGSoutput$sims.list$deviance == Inf) >0){ 
+cctfit$BUGSoutput$mean$deviance <- mean(cctfit$BUGSoutput$sims.list$deviance[cctfit$BUGSoutput$sims.list$deviance != Inf,1],na.rm=TRUE) #Dbar, also known as deviance
+cctfit$BUGSoutput$pD <- var(cctfit$BUGSoutput$sims.list$deviance[cctfit$BUGSoutput$sims.list$deviance != Inf,1],na.rm=TRUE)/2  #pD, variance of the deviance, divided by 2
+cctfit$BUGSoutput$DIC <- cctfit$BUGSoutput$mean$deviance + cctfit$BUGSoutput$pD
+}else{
 cctfit$BUGSoutput$mean$deviance <- mean(cctfit$BUGSoutput$sims.list$deviance) #Dbar, also known as deviance
 cctfit$BUGSoutput$pD <- var(cctfit$BUGSoutput$sims.list$deviance[,1])/2  #pD, variance of the deviance, divided by 2
 cctfit$BUGSoutput$DIC <- cctfit$BUGSoutput$mean$deviance + cctfit$BUGSoutput$pD
+}
+
 }
 
 if(cctfit$whmodel=="CRM"){
@@ -1336,6 +1400,9 @@ if(cctfit$V > 1){
 cctfit$BUGSoutput$sims.list$lam <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$m,cctfit$V))
 }
 }
+
+storefulllik <- 0
+if(storefulllik == 1){
 cctfit$BUGSoutput$sims.list$tau <- array(-1,c(cctfit$BUGSoutput$n.sims,cctfit$n,cctfit$m))
 cctfit$Lik  <- array(NA, c(cctfit$n,cctfit$m,cctfit$BUGSoutput$n.sims));
 
@@ -1344,14 +1411,32 @@ cctfit$BUGSoutput$sims.list[["tau"]][samp,,] <- cctfit$BUGSoutput$sims.list[["E"
 cctfit$Lik[,,samp] <-  dnorm(cctfit$data,mean=(cctfit$BUGSoutput$sims.list[["a"]][samp,]*t(cctfit$BUGSoutput$sims.list[["T"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]]))+array(cctfit$BUGSoutput$sims.list[["b"]][samp,],c(cctfit$n,cctfit$m)),sd=cctfit$BUGSoutput$sims.list[["a"]][samp,]*(cctfit$BUGSoutput$sims.list[["tau"]][samp,,]^-.5))
 if(cctfit$mval==1){cctfit$Lik[cbind(datob$thena,samp)] <- 1}
 }
-
 cctfit$BUGSoutput$sims.list$deviance <- array(-2*apply(log(cctfit$Lik),3,sum),c(cctfit$BUGSoutput$n.sims,1))
+}else{
+cctfit$LogLik  <- array(NA, c(cctfit$BUGSoutput$n.sims));
+
+for(samp in 1:cctfit$BUGSoutput$n.sims){
+tautmp <- cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(1/cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])
+Liktmp <-  dnorm(cctfit$data,mean=(cctfit$BUGSoutput$sims.list[["a"]][samp,]*t(cctfit$BUGSoutput$sims.list[["T"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]]))+array(cctfit$BUGSoutput$sims.list[["b"]][samp,],c(cctfit$n,cctfit$m)),sd=cctfit$BUGSoutput$sims.list[["a"]][samp,]*(tautmp^-.5))
+if(cctfit$mval==1){Liktmp[datob$thena] <- 1}
+cctfit$LogLik[samp] <- sum(log(Liktmp))
+}
+cctfit$BUGSoutput$sims.list$deviance <- array(-2*(cctfit$LogLik),c(cctfit$BUGSoutput$n.sims,1))
+}
+
 cctfit$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short == "deviance")]]] <- array(cctfit$BUGSoutput$sims.list$deviance,c(cctfit$BUGSoutput$n.keep,cctfit$BUGSoutput$n.chains))
 cctfit$BUGSoutput$sims.matrix[,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short == "deviance")]]] <- cctfit$BUGSoutput$sims.list$deviance[,1]
  
+if(sum(cctfit$BUGSoutput$sims.list$deviance == Inf) >0){ 
+cctfit$BUGSoutput$mean$deviance <- mean(cctfit$BUGSoutput$sims.list$deviance[cctfit$BUGSoutput$sims.list$deviance != Inf,1],na.rm=TRUE) #Dbar, also known as deviance
+cctfit$BUGSoutput$pD <- var(cctfit$BUGSoutput$sims.list$deviance[cctfit$BUGSoutput$sims.list$deviance != Inf,1],na.rm=TRUE)/2  #pD, variance of the deviance, divided by 2
+cctfit$BUGSoutput$DIC <- cctfit$BUGSoutput$mean$deviance + cctfit$BUGSoutput$pD
+}else{
 cctfit$BUGSoutput$mean$deviance <- mean(cctfit$BUGSoutput$sims.list$deviance) #Dbar, also known as deviance
 cctfit$BUGSoutput$pD <- var(cctfit$BUGSoutput$sims.list$deviance[,1])/2  #pD, variance of the deviance, divided by 2
 cctfit$BUGSoutput$DIC <- cctfit$BUGSoutput$mean$deviance + cctfit$BUGSoutput$pD
+}
+
 }
 
 message(paste("DIC : ",round(cctfit$BUGSoutput$DIC,2),"   pD : ",round(cctfit$BUGSoutput$pD,2),sep=""))
@@ -1480,8 +1565,8 @@ cctfit$BUGSoutput$sims.list[["gam"]] <- array(cctfit$BUGSoutput$sims.list[["gam"
 }
 hditmp <- apply(cctfit$BUGSoutput$sims.list[["T"]][,,1],2,hdi)
 if(useinvlogit == 1){
-plot(1:newm,rep(NA,newm),main=expression(paste("Item Truth (",T[k],") and Thresholds (",gamma[c],")")),xlab="Item",ylim=c(0,1),ylab="Posterior Mean Value",las=1,pch=21,bg="white",axes=FALSE)
-}else{plot(1:newm,rep(NA,newm),main=expression(paste("Item Truth (",T[k],") and Thresholds (",gamma[c],")")),xlab="Item",ylim=c(min(hditmp,min(apply(cctfit$BUGSoutput$sims.list[["gam"]],c(2,3),mean))),max(hditmp,max(apply(cctfit$BUGSoutput$sims.list[["gam"]],c(2,3),mean)))),ylab="Posterior Mean Value",las=1,pch=21,bg="white",axes=FALSE)
+plot(1:newm,rep(NA,newm),main=expression(paste("Item Truth (",T[vk],") and Thresholds (",gamma[vc],")")),xlab="Item",ylim=c(0,1),ylab="Posterior Mean Value",las=1,pch=21,bg="white",axes=FALSE)
+}else{plot(1:newm,rep(NA,newm),main=expression(paste("Item Truth (",T[vk],") and Thresholds (",gamma[vc],")")),xlab="Item",ylim=c(min(hditmp,min(apply(cctfit$BUGSoutput$sims.list[["gam"]],c(2,3),mean))),max(hditmp,max(apply(cctfit$BUGSoutput$sims.list[["gam"]],c(2,3),mean)))),ylab="Posterior Mean Value",las=1,pch=21,bg="white",axes=FALSE)
 }
 for(i in 1:dim(cctfit$BUGSoutput$sims.list[["T"]])[3]){
 points(apply(cctfit$BUGSoutput$sims.list[["T"]][,,i],c(2),mean),xlab=expression(paste("Item Truth (",T[vk],") Per Cluster")),ylab="Posterior Mean Value",las=1,ylim=c(0,1),pch=sym[i],bg="white")
@@ -1678,6 +1763,347 @@ ppcfunc <- function(cctfit,saveplots=0,savedir=0,gui=0,polych=0) {
 
 if(cctfit$checksrun == 0){
 message("\n ...One moment, calculating posterior predictive checks")
+
+usesubset <- 1
+
+if(usesubset == 1){
+subsetsize <- min(500,cctfit$BUGSoutput$n.sims)
+indices <- sample(cctfit$BUGSoutput$n.sims,min(subsetsize,cctfit$BUGSoutput$n.sims))
+
+if(cctfit$whmodel=="GCM"){
+if(cctfit$V == 1){
+cctfit$V <- 1;
+cctfit$BUGSoutput$sims.list$e <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$n));
+if(length(dim(cctfit$BUGSoutput$sims.list$Z)) < 3){
+cctfit$BUGSoutput$sims.list$Z <- array(cctfit$BUGSoutput$sims.list[["Z"]][,],c(cctfit$BUGSoutput$n.sims,cctfit$m,1))}
+if(cctfit$itemdiff == 1){
+if(length(dim(cctfit$BUGSoutput$sims.list$lam)) < 3){
+cctfit$BUGSoutput$sims.list$lam <- array(cctfit$BUGSoutput$sims.list[["lam"]][,],c(cctfit$BUGSoutput$n.sims,cctfit$m,1))}
+}
+}
+if(cctfit$itemdiff == 0){
+if(cctfit$V == 1){
+cctfit$BUGSoutput$sims.list$lam <- array(.5,c(cctfit$BUGSoutput$n.sims,cctfit$m,1))
+}
+if(cctfit$V > 1){
+cctfit$BUGSoutput$sims.list$lam <- array(.5,c(cctfit$BUGSoutput$n.sims,cctfit$m,cctfit$V))
+} }
+
+cctfit$ppY <- array(NA, c(cctfit$n,cctfit$m,subsetsize));
+
+for(samp in indices){
+tautmp <- (cctfit$BUGSoutput$sims.list[["th"]][samp,]*t(1-cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])) / 
+( (cctfit$BUGSoutput$sims.list[["th"]][samp,]*t(1-cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])) + 
+((1-cctfit$BUGSoutput$sims.list[["th"]][samp,])*t(cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])) ) 
+
+cctfit$ppY[,,which(indices == samp)] <- matrix(rbinom((cctfit$n*cctfit$m),1,
+(t(cctfit$BUGSoutput$sims.list[["Z"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])*tautmp ) +
+ t(t(1-tautmp)%*%diag(cctfit$BUGSoutput$sims.list[["g"]][samp,])) ), cctfit$n,cctfit$m)
+}
+
+if(cctfit$mval==1){
+for(i in 1:dim(cctfit$datob$thena)[1]){cctfit$data[cctfit$datob$thena[i,1],cctfit$datob$thena[i,2]] <- Mode(cctfit$ppY[cctfit$datob$thena[i,1],cctfit$datob$thena[i,2],])}
+cctfit$MVest <- cbind(cctfit$datob$thena,cctfit$data[cctfit$datob$thena])
+colnames(cctfit$MVest) <- c("Pers","Item","Resp")
+}
+
+cctfit$mean$ppY <- rowMeans(cctfit$ppY[,,],dims=2)
+
+leigv <- 12
+options(warn=-3)
+ind <- indices 
+eigv <- matrix(-1,length(ind),leigv)
+tmp <- apply(cctfit$ppY,c(1,3),function(x) t(x))
+tmp2 <- apply(tmp[,,],3,function(x) cor(x))
+tmp3 <- array(tmp2,c(cctfit$n,cctfit$n,subsetsize))
+for(i in 1:length(ind)){
+suppressMessages(try(eigv[i,] <- fa(tmp3[,,i])$values[1:leigv],silent=TRUE))}
+wch <- -which(eigv[,1] == -1); 
+if(length(wch)==0){cctfit$ppeig <-  eigv}else{cctfit$ppeig <-  eigv[-which(eigv[,1] == -1),]}
+cctfit$dateig <-  suppressMessages(fa(cor(t(cctfit$data)))$values[1:leigv])
+options(warn=0)
+
+if(cctfit$V==1){
+varvec <- matrix(-1,length(ind),dim(cctfit$ppY)[2])
+vdi <- matrix(-1,dim(cctfit$ppY)[3],1)
+for(i in 1:length(ind)){
+varvec[i,] <- apply(cctfit$ppY[,,i],2,var)
+}
+vdi <- apply(varvec,1,var)
+cctfit$ppVDI <- vdi
+cctfit$datVDI <- var(apply(cctfit$data,2,var))
+}
+
+options(warn=-3)
+if(cctfit$V>1){
+varvec <- array(NA,c(length(ind),dim(cctfit$ppY)[2],cctfit$V))
+vdi <- matrix(NA,dim(cctfit$ppY)[3],cctfit$V)
+cctfit$datVDI  <- array(-1,c(1,cctfit$V))
+for(v in 1:cctfit$V){
+for(i in 1:length(ind)){
+if(sum(cctfit$BUGSoutput$sims.list$e[ind[i],] == v)>1){
+suppressMessages(try(varvec[i,,v] <- apply(cctfit$ppY[cctfit$BUGSoutput$sims.list$e[ind[i],] == v,,i],2,var),silent=TRUE))
+}else{
+suppressMessages(try(varvec[i,,v] <- var(cctfit$ppY[cctfit$BUGSoutput$sims.list$e[ind[i],] == v,,i]),silent=TRUE))
+}
+}
+if(sum(cctfit$respmem == v)>1){
+cctfit$datVDI[v] <- var(apply(cctfit$data[cctfit$respmem == v,],2,var))
+}else{
+cctfit$datVDI[v] <- var(cctfit$data[cctfit$respmem == v,])
+}
+}
+vdi <- apply(varvec,c(1,3),var)
+cctfit$ppVDI <- vdi
+
+options(warn=0)
+if(sum(apply(cctfit$ppVDI,2,function(x) all(x == 0,na.rm=TRUE)))>=1){
+for(i in which(apply(cctfit$ppVDI,2,function(x) all(x == 0)))){
+cctfit$ppVDI[,i] <- NA
+}
+}
+for(v in 1:dim(cctfit$ppVDI)[2]){
+if(identical(unique(cctfit$ppVDI[,v]),c(NA,0)) || identical(unique(cctfit$ppVDI[,v]),c(0,NA))){cctfit$ppVDI[,v] <- NA}
+}
+}
+rm(vdi, varvec)
+rm(eigv,leigv,tmp,tmp2,tmp3,ind);
+
+cctfit$checksrun <- 1
+}
+
+if(cctfit$whmodel=="LTRM"){
+if(cctfit$V == 1){
+cctfit$V <- 1;
+cctfit$BUGSoutput$sims.list$e <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$n));
+if(length(dim(cctfit$BUGSoutput$sims.list[["T"]])) < 3){
+cctfit$BUGSoutput$sims.list$T <- array(cctfit$BUGSoutput$sims.list[["T"]][,],c(cctfit$BUGSoutput$n.sims,cctfit$m,1))}
+if(length(dim(cctfit$BUGSoutput$sims.list[["gam"]])) < 3){
+cctfit$BUGSoutput$sims.list$gam <- array(cctfit$BUGSoutput$sims.list[["gam"]][,],c(cctfit$BUGSoutput$n.sims,cctfit$C-1,1))}
+if(cctfit$itemdiff == 1){
+if(length(dim(cctfit$BUGSoutput$sims.list$lam)) < 3){
+cctfit$BUGSoutput$sims.list$lam <- array(cctfit$BUGSoutput$sims.list[["lam"]][,],c(cctfit$BUGSoutput$n.sims,cctfit$m,1))}
+}
+}
+if(cctfit$itemdiff == 0){
+if(cctfit$V == 1){
+cctfit$BUGSoutput$sims.list$lam <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$m,1))
+}
+if(cctfit$V > 1){
+cctfit$BUGSoutput$sims.list$lam <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$m,cctfit$V))
+}
+}
+cctfit$ppY <- array(NA, c(cctfit$n,cctfit$m,subsetsize));
+cctfit$ppX <- array(NA, c(cctfit$n,cctfit$m,subsetsize));
+
+for(samp in indices){
+tautmp <- cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(1/cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])
+
+cctfit$ppX[,,which(indices == samp)] <- matrix(
+rnorm((cctfit$n*cctfit$m),t(cctfit$BUGSoutput$sims.list[["T"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]]),(tautmp^(-.5))), 
+cctfit$n,cctfit$m)
+
+deltatmp <- cctfit$BUGSoutput$sims.list[["a"]][samp,]*t(cctfit$BUGSoutput$sims.list[["gam"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])+cctfit$BUGSoutput$sims.list[["b"]][samp,]
+
+rc <- which(cctfit$ppX[,,which(indices == samp)] < deltatmp[,1],arr.ind=TRUE)
+cctfit$ppY[cbind(rc,array(which(indices == samp),dim(rc)[1]))] <- 1 
+for(c in 1:(cctfit$C-1)){
+rc <- which(cctfit$ppX[,,which(indices == samp)] > deltatmp[,c],arr.ind=TRUE)
+cctfit$ppY[cbind(rc,array(which(indices == samp),dim(rc)[1]))] <- (c+1) }
+
+}
+cctfit$mean$ppY <- rowMeans(cctfit$ppY[,,],dims=2)
+
+if(cctfit$mval==1){
+for(i in 1:dim(cctfit$datob$thena)[1]){cctfit$data[cctfit$datob$thena[i,1],cctfit$datob$thena[i,2]] <- Mode(cctfit$ppY[cctfit$datob$thena[i,1],cctfit$datob$thena[i,2],])}
+cctfit$MVest <- cbind(cctfit$datob$thena,cctfit$data[cctfit$datob$thena])
+colnames(cctfit$MVest) <- c("Pers","Item","Resp")
+}
+
+leigv <- 12
+eigv <- matrix(-1,dim(cctfit$ppY)[3],leigv)
+options(warn=-3)
+ind <- sample(indices,min(cctfit$BUGSoutput$n.sims,250,subsetsize)) #250 is the number of samples
+tmp <- apply(cctfit$ppY,c(1,3),function(x) t(x))
+if(polych != 0){tmp2 <- apply(tmp[,,],3,function(x) polychoric(x,polycor=TRUE)$rho)}else{
+tmp2 <- apply(tmp[,,],3,function(x) cor(x))
+}
+tmp3 <- array(tmp2,c(cctfit$n,cctfit$n,length(ind))) 
+for(i in 1:length(ind)){
+suppressMessages(try(eigv[i,] <- fa(tmp3[,,i])$values[1:leigv],silent=TRUE))}
+wch <- -which(eigv[,1] == -1); 
+if(length(wch)==0){cctfit$ppeig <-  eigv}else{cctfit$ppeig <-  eigv[-which(eigv[,1] == -1),]}
+if(polych != 0){
+cctfit$dateig <-  suppressMessages(fa(polychoric(t(cctfit$data),polycor=TRUE)$rho)$values[1:leigv])}else{
+cctfit$dateig <-  suppressMessages(fa(cor(t(cctfit$data)))$values[1:leigv])
+}
+
+options(warn=0)
+
+if(cctfit$V==1){
+varvec <- matrix(NA,length(ind),dim(cctfit$ppY)[2])
+vdi <- matrix(NA,dim(cctfit$ppY)[3],1)
+for(i in 1:length(ind)){
+varvec[i,] <- apply(cctfit$ppY[,,i],2,var)
+}
+vdi <- apply(varvec,1,var)
+cctfit$ppVDI <- vdi
+cctfit$datVDI <- var(apply(cctfit$data,2,var))
+}
+options(warn=-3)
+if(cctfit$V>1){
+varvec <- array(NA,c(length(ind),dim(cctfit$ppY)[2],cctfit$V))
+vdi <- matrix(NA,dim(cctfit$ppY)[3],cctfit$V)
+cctfit$datVDI  <- array(-1,c(1,cctfit$V))
+for(v in 1:cctfit$V){
+for(i in 1:length(ind)){
+if(sum(cctfit$BUGSoutput$sims.list$e[ind[i],] == v)>1){
+suppressMessages(try(varvec[i,,v] <- apply(cctfit$ppY[cctfit$BUGSoutput$sims.list$e[ind[i],] == v,,i],2,var),silent=TRUE))
+}else{
+suppressMessages(try(varvec[i,,v] <- var(cctfit$ppY[cctfit$BUGSoutput$sims.list$e[ind[i],] == v,,i]),silent=TRUE))
+}
+}
+if(sum(cctfit$respmem == v)>1){
+cctfit$datVDI[v] <- var(apply(cctfit$data[cctfit$respmem == v,],2,var))
+}else{
+cctfit$datVDI[v] <- var(cctfit$data[cctfit$respmem == v,])
+}
+}
+vdi <- apply(varvec,c(1,3),var)
+cctfit$ppVDI <- vdi
+
+options(warn=0)
+if(sum(apply(cctfit$ppVDI,2,function(x) all(x == 0,na.rm=TRUE)))>=1){
+for(i in which(apply(cctfit$ppVDI,2,function(x) all(x == 0)))){
+cctfit$ppVDI[,i] <- NA
+}
+}
+for(v in 1:dim(cctfit$ppVDI)[2]){
+if(identical(unique(cctfit$ppVDI[,v]),c(NA,0)) || identical(unique(cctfit$ppVDI[,v]),c(0,NA))){cctfit$ppVDI[,v] <- NA}
+}
+}
+cctfit$polycor <- as.numeric(tclvalue(polyvar))
+
+rm(vdi, varvec)
+rm(eigv,leigv,tmp,tmp2,tmp3,ind);
+
+cctfit$checksrun <- 1
+}
+
+if(cctfit$whmodel=="CRM"){
+invlogit <- function(x){x <- 1 / (1 + exp(-x)); return(x)}
+logit <- function(x){x <- log(x/(1-x)); return(x)}
+
+if(cctfit$V == 1){
+cctfit$V <- 1;
+cctfit$BUGSoutput$sims.list$e <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$n));
+if(length(dim(cctfit$BUGSoutput$sims.list[["T"]])) < 3){
+cctfit$BUGSoutput$sims.list$T <- array(cctfit$BUGSoutput$sims.list[["T"]][,],c(cctfit$BUGSoutput$n.sims,cctfit$m,1))}
+if(cctfit$itemdiff == 1){
+if(length(dim(cctfit$BUGSoutput$sims.list$lam)) < 3){
+cctfit$BUGSoutput$sims.list$lam <- array(cctfit$BUGSoutput$sims.list[["lam"]][,],c(cctfit$BUGSoutput$n.sims,cctfit$m,1))}
+}
+}
+if(cctfit$itemdiff == 0){
+if(cctfit$V == 1){
+cctfit$BUGSoutput$sims.list$lam <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$m,1))
+}
+if(cctfit$V > 1){
+cctfit$BUGSoutput$sims.list$lam <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$m,cctfit$V))
+}
+}
+
+cctfit$ppY <- array(NA, c(cctfit$n,cctfit$m,subsetsize));
+cctfit$ppX <- array(NA, c(cctfit$n,cctfit$m,subsetsize));
+
+for(samp in indices){
+tautmp <- cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(1/cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]])
+
+cctfit$ppY[,,which(indices == samp)] <- matrix(
+rnorm((cctfit$n*cctfit$m),(cctfit$BUGSoutput$sims.list[["a"]][samp,]*t(cctfit$BUGSoutput$sims.list[["T"]][samp,,cctfit$BUGSoutput$sims.list[["e"]][samp,]]))+matrix(rep(cctfit$BUGSoutput$sims.list[["b"]][samp,],cctfit$m),cctfit$n,cctfit$m),
+(cctfit$BUGSoutput$sims.list[["a"]][samp,]*(tautmp^(-.5)))), 
+cctfit$n,cctfit$m)
+
+cctfit$ppX[,,which(indices == samp)] <- (array(rep(1/cctfit$BUGSoutput$sims.list[["a"]][samp,],times=cctfit$m),c(cctfit$n,cctfit$m))*(cctfit$ppY[,,which(indices == samp)]))-matrix(rep(cctfit$BUGSoutput$sims.list[["b"]][samp,],times=cctfit$m),c(cctfit$n,cctfit$m))
+}
+cctfit$mean$ppY <- rowMeans(cctfit$ppY[,,],dims=2)
+
+if(cctfit$mval==1){
+for(i in 1:dim(cctfit$datob$thena)[1]){cctfit$data[cctfit$datob$thena[i,1],cctfit$datob$thena[i,2]] <- mean(cctfit$ppY[cctfit$datob$thena[i,1],cctfit$datob$thena[i,2],])}
+cctfit$MVest <- cbind(cctfit$datob$thena,cctfit$data[cctfit$datob$thena])
+colnames(cctfit$MVest) <- c("Pers","Item","Resp")
+}
+
+leigv <- 12
+options(warn=-3)
+ind <- indices #500 is the number of samples
+eigv <- matrix(-1,length(ind),leigv)
+tmp <- apply(cctfit$ppY,c(1,3),function(x) t(x))
+tmp2 <- apply(tmp[,,],3,function(x) cor(x))
+tmp3 <- array(tmp2,c(cctfit$n,cctfit$n,subsetsize))
+for(i in 1:length(ind)){
+suppressMessages(try(eigv[i,] <- fa(tmp3[,,i])$values[1:leigv],silent=TRUE))}
+wch <- -which(eigv[,1] == -1); 
+if(length(wch)==0){cctfit$ppeig <-  eigv}else{cctfit$ppeig <-  eigv[-which(eigv[,1] == -1),]}
+cctfit$dateig <-  suppressMessages(fa(cor(t(cctfit$data)))$values[1:leigv])
+options(warn=0)
+
+if(cctfit$V==1){
+vdi <- matrix(-1,dim(cctfit$ppY)[3],1)
+varvec <- array(-1,c(length(ind),dim(cctfit$ppY)[2]))
+
+for(i in 1:length(ind)){
+varvec[i,] <- apply(invlogit(cctfit$ppY[,,i]),2,var)  
+}
+vdi <- apply(varvec,1,var)
+cctfit$ppVDI <- apply(varvec,1,var) 
+
+cctfit$datVDI <- var(apply(invlogit(cctfit$data),2,var))  
+
+}
+if(cctfit$V>1){
+varvec <- array(NA,c(length(ind),dim(cctfit$ppY)[2],cctfit$V))
+cctfit$datVDI  <- array(NA,c(1,cctfit$V))
+options(warn=-3)
+for(v in 1:cctfit$V){
+for(i in 1:length(ind)){
+if(sum(cctfit$BUGSoutput$sims.list$e[ind[i],] == v)>1){
+suppressMessages(try(varvec[i,,v] <- apply(invlogit(cctfit$ppY[cctfit$BUGSoutput$sims.list$e[ind[i],] == v,,i]),2,var),silent=TRUE))
+}else{
+suppressMessages(try(varvec[i,,v] <- var(invlogit(cctfit$ppY[cctfit$BUGSoutput$sims.list$e[ind[i],] == v,,i])),silent=TRUE)) 
+}
+}
+if(sum(cctfit$respmem == v)>1){
+cctfit$datVDI[v] <- var(apply(invlogit(cctfit$data[cctfit$respmem == v,]),2,var)) 
+}else{
+cctfit$datVDI[v] <- var(invlogit(cctfit$data[cctfit$respmem == v,])) 
+}
+}
+options(warn=0)
+vdi <- apply(varvec,c(1,3),function(x) var(x,na.rm=TRUE))
+cctfit$ppVDI <- vdi
+
+if(sum(apply(cctfit$ppVDI,2,function(x) all(x == 0,na.rm=TRUE)))>=1){
+for(i in which(apply(cctfit$ppVDI,2,function(x) all(x == 0)))){
+cctfit$ppVDI[,i] <- NA
+}
+}
+for(v in 1:dim(cctfit$ppVDI)[2]){
+if(identical(unique(cctfit$ppVDI[,v]),c(NA,0)) || identical(unique(cctfit$ppVDI[,v]),c(0,NA))){cctfit$ppVDI[,v] <- NA}
+}
+}
+
+rm(vdi, varvec)
+rm(eigv,leigv,tmp,tmp2,tmp3,ind);
+
+cctfit$checksrun <- 1
+}
+
+
+}else{
+#########################################
+##### Calculate Posterior Predictive Data From All Samples (memory intensive)
+#########################################
 if(cctfit$whmodel=="GCM"){
 if(cctfit$V == 1){
 cctfit$V <- 1;
@@ -2011,6 +2437,8 @@ rm(vdi, varvec)
 rm(eigv,leigv,tmp,tmp2,tmp3,ind);
 
 cctfit$checksrun <- 1
+}
+
 }
 
 if(cctfit$mval==1 && gui==1){
