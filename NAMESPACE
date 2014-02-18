@@ -1,1 +1,4 @@
-exportPattern("^[[:alpha:]]+")
+export(cctgui,cctscree,cctapply,cctresults,cctppc,cctexport)
+import(tcltk,R2jags,rjags,mvtnorm,polycor,MASS)
+importFrom(psych,fa)
+importFrom(psych,polychoric)

@@ -1,12 +1,12 @@
-\name{testdat.csv}
-\alias{testdat}
+\name{hotcold.csv}
+\alias{hotcold}
 \title{
-testdat
+hotcold
 }
 \description{
-Example test data for cctgui() \cr
-This data should load as 20 respondents by 25 items, and as binary data \cr
-It is an example of 1 culture data \cr
+Example 2 culture binary data with item difficulty for cctgui() \cr
+This data should load as 23 respondents by 27 items, and as binary data \cr
+It is an example of 2 culture data, with 14 missing data values \cr
 }
 %\usage{
 %}

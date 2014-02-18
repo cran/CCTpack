@@ -1,12 +1,12 @@
-\name{testdat.csv}
-\alias{testdat}
+\name{raterdata.csv}
+\alias{raterdata}
 \title{
-testdat
+raterdata
 }
 \description{
-Example test data for cctgui() \cr
-This data should load as 20 respondents by 25 items, and as binary data \cr
-It is an example of 1 culture data \cr
+Example 1 culture ordinal data with item difficulty for cctgui() \cr
+This data should load as 25 respondents by 40 items, and as ordinal data \cr
+It is an example of 1 culture data, with 9 missing data values \cr
 }
 %\usage{
 %}
