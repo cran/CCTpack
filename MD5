@@ -1,12 +1,12 @@
-2e82e9919741e799cb30d69859b94919 *DESCRIPTION
+73e2fe5c9d7a014c5af1cfe51f873ab9 *DESCRIPTION
 59c0bfcab1d8e5dd393b0afacef95568 *NAMESPACE
-3727f25be6dd1ee5ce27660531133ccc *R/cctgui.r
+73e02cde213941e2d719ac9e87f892c9 *R/cctgui.r
 9851e3ae1cb077b84ba094515a75c86d *data/continuousdata.csv.gz
 2d710e7e17c6fbe9c8d004080b2ef8b4 *data/hotcold.csv.gz
 f720ff2155e8e927cbbd54e55f33a21f *data/raterdata.csv.gz
 eed61f0b9b4540d249931311cc666376 *data/testdat.csv.gz
 eb4a9084ff65e612ffddddf12ef63be3 *inst/CITATION
-b88a162dcea8c7e93d2fcf816ae27997 *man/CCTpack-package.Rd
+511fcba99003db7ad8bb131725277d6b *man/CCTpack-package.Rd
 e4316fc6272638f08b7a4ae4bbc7e3c0 *man/cctapply.Rd
 f4d01ca40eb94bf1fa3148354eb436cf *man/cctexport.Rd
 09ff0249c2f1cee4849e167f2a222d07 *man/cctgui.Rd

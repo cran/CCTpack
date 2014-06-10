@@ -8,6 +8,10 @@ suppressMessages(try(memory.limit(20000),silent=TRUE))
 options(warn=0)
 
 Mode <- function(x) {ux <- unique(x); ux[which.max(tabulate(match(x, ux)))] }
+probit <- function(x) {probval <- qnorm(x,0,1); return(probval)}
+invprobit <- function(x) {invprobval <- pnorm(x,0,1); return(invprobval)}
+
+invprobitident <- function(x) {return(x)}
 
 globalVariables(names = c("cctfit","datob","polyvar","alltraceplot","dtraceplot","samplesvar","chainsvar","burninvar","thinvar","culturesvar","datframe","itemdiffvar"
 ,"plotresults.but","doppc.but","exportresults.but","screeplot.but","applymodel.but","datafiletxt","resptxt","itemtxt","dattypetxt","modeltxt","datframe4"
@@ -284,7 +288,8 @@ datob$whmodel <- "CRM"
 if(min(datob$dat) >= 0 && max(datob$dat) <= 1){
 message("\n ...Continuous data detected")
 tkinsert(dattypetxt,"end","Continuous in [0,1]")
-datob$dat[datob$dat<=0.01] <- .01; datob$dat[datob$dat>=.99] <- .99
+datob$dat[datob$dat<=0] <- .001; datob$dat[datob$dat>=1] <- .999
+#datob$dat <- logit(datob$dat) 
 datob$dat <- logit(datob$dat) 
 
 if(datob$mval==1){
@@ -293,8 +298,10 @@ datob$thenalist <- which(is.na(datob$dat))
 datob$dat[datob$thena] <- colMeans(datob$dat[,datob$thena[,2]],na.rm=TRUE)
 }
 }else{tkinsert(dattypetxt,"end","Continuous");
+#datob$dat <- invlogit(datob$dat) 
 datob$dat <- invlogit(datob$dat)
-datob$dat[datob$dat<=0.01] <- .01; datob$dat[datob$dat>=.99] <- .99
+datob$dat[datob$dat<=0] <- .001; datob$dat[datob$dat>=1] <- .999
+#datob$dat <- logit(datob$dat) 
 datob$dat <- logit(datob$dat) 
 
 if(datob$mval==1){
@@ -401,7 +408,8 @@ logit <- function(x){x <- log(x/(1-x)); return(x)}
 datob$whmodel <- "CRM"
 if(min(datob$dat) >= 0 && max(datob$dat) <= 1){
 message("\n ...Continuous data detected")
-datob$dat[datob$dat<=0.02] <- .02; datob$dat[datob$dat>=.98] <- .98
+datob$dat[datob$dat<=0] <- .001; datob$dat[datob$dat>=1] <- .999
+#datob$dat <- logit(datob$dat) 
 datob$dat <- logit(datob$dat) 
 
 if(datob$mval==1){
@@ -410,8 +418,10 @@ datob$thenalist <- which(is.na(datob$dat))
 datob$dat[datob$thena] <- colMeans(datob$dat[,datob$thena[,2]],na.rm=TRUE)
 }
 }else{
+#datob$dat <- invlogit(datob$dat) 
 datob$dat <- invlogit(datob$dat)
-datob$dat[datob$dat<=0.02] <- .02; datob$dat[datob$dat>=.98] <- .98
+datob$dat[datob$dat<=0] <- .001; datob$dat[datob$dat>=1] <- .999
+#datob$dat <- logit(datob$dat) 
 datob$dat <- logit(datob$dat) 
 
 if(datob$mval==1){
@@ -487,8 +497,21 @@ if(saveplots==1){jpeg(file.path(gsub(".Rdata","scree.jpg",savedir)),width = 6, h
 if(saveplots==2){postscript(file=file.path(gsub(".Rdata","scree.eps",savedir)), onefile=FALSE, horizontal=FALSE, width = 6, height = 6, paper="special", family="Times")}
 
 if(noplot==0){
+
+if(sum(apply(datob$dat,1,function(x) sd(x,na.rm=TRUE)) == 0) > 0){
+tmp <- datob$dat
+if(sum(apply(datob$dat,1,function(x) sd(x,na.rm=TRUE)) == 0) == 1){
+tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE)) == 0),1] <-  min(tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE)) == 0),1]+.01,.99)
+}else{
+tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE)) == 0),1] <- sapply(apply(tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE)) == 0),],1,mean),function(x) min(x+.01,.99))
+}
+par(oma=c(0,0,0,0),mar=c(4,4,3,1),mgp=c(2.25,.75,0),mfrow=c(1,1))
+suppressMessages(plot(fa(cor(t(tmp)))$values[1:8],las=1,type="b",bg="black",pch=21,xlab="Factor",ylab="Magnitude",main="Scree Plot of Data"))
+}else{
 par(oma=c(0,0,0,0),mar=c(4,4,3,1),mgp=c(2.25,.75,0),mfrow=c(1,1))
 suppressMessages(plot(fa(cor(t(datob$dat)))$values[1:8],las=1,type="b",bg="black",pch=21,xlab="Factor",ylab="Magnitude",main="Scree Plot of Data"))
+}
+
 }
 
 if(saveplots==1 || saveplots ==2){dev.off()}
@@ -508,7 +531,6 @@ datob$datfactorsp <- suppressMessages(fa(polychoric(t(datob$dat),polycor=TRUE)$r
 datob$datfactors <- datob$datfactorsp
 }else{
 if(length(datob$datfactorsp)==1){
-
 datob$datfactorsc <- suppressMessages(fa(cor(t(datob$dat)))$values[1:8])
 }
 datob$datfactors <- datob$datfactorsc
@@ -632,7 +654,7 @@ for (v in 1:V){
 mcltrm <-
 "model{
 for (l in 1:nobs){
-  tau[Y[l,1],Y[l,2]] <- E[Y[l,1]]
+  tau[Y[l,1],Y[l,2]] <- pow(E[Y[l,1]],-2)
  	pY[Y[l,1],Y[l,2],1] <- pnorm((a[Y[l,1]]*gam[1,Om[Y[l,1]]]) + b[Y[l,1]],T[Y[l,2],Om[Y[l,1]]],tau[Y[l,1],Y[l,2]])
 	for (c in 2:(C-1)){pY[Y[l,1],Y[l,2],c] <- pnorm((a[Y[l,1]]*gam[c,Om[Y[l,1]]]) + b[Y[l,1]],T[Y[l,2],Om[Y[l,1]]],tau[Y[l,1],Y[l,2]]) - sum(pY[Y[l,1],Y[l,2],1:(c-1)])}
 	pY[Y[l,1],Y[l,2],C] <- (1 - sum(pY[Y[l,1],Y[l,2],1:(C-1)]))
@@ -642,8 +664,10 @@ for (l in 1:nobs){
 #Parameters
    for (i in 1:n){
       Om[i] ~ dcat(pi) 
-      E[i] ~ dgamma(pow(Emu[Om[i]],2)*Etau[Om[i]],Emu[Om[i]]*Etau[Om[i]])
-      a[i] ~ dgamma(atau[Om[i]],atau[Om[i]])
+      Elog[i] ~ dnorm(Emu[Om[i]],Etau[Om[i]])
+	  E[i] <- exp(Elog[i])  
+      alog[i] ~ dnorm(amu[Om[i]],atau[Om[i]])T(-2.3,2.3)
+	  a[i] <- exp(alog[i])
       b[i] ~ dnorm(bmu[Om[i]],btau[Om[i]]) }
 
    for (k in 1:m){
@@ -661,20 +685,21 @@ for (l in 1:nobs){
 #Hyperparameters	
  for (v in 1:V){
   L[v] <- 1 
-  Tmu[v] ~ dnorm(0,.01)
-  Ttau[v] ~ dgamma(1,.1)
-  Emu[v] ~ dgamma(1,1)
-  Etau[v] ~ dgamma(1,1)
-  amu[v] <- 1
-  atau[v] ~ dgamma(4,4)
+  Tmu[v] ~ dnorm(0,.25)
+  Tsig[v] ~ dunif(.25,3)
+  Ttau[v] <- pow(Tsig[v],-2)
+  Emu[v] ~ dnorm(0,.01)
+  Etau[v] ~ dgamma(.01, .01)
+  amu[v] <- 0
+  atau[v] ~ dgamma(.01, .01)T(.01,)
   bmu[v] <- 0
-  btau[v] ~ dgamma(4,4)
+  btau[v] ~ dgamma(.01, .01)
 }}"
 
 mcltrmid <-
 "model{
 for (l in 1:nobs){
-  tau[Y[l,1],Y[l,2]] <- E[Y[l,1]]/lam[Y[l,2],Om[Y[l,1]]]
+  tau[Y[l,1],Y[l,2]] <- pow(E[Y[l,1]]*exp(lam[Y[l,2],Om[Y[l,1]]]),-2)
  	pY[Y[l,1],Y[l,2],1] <- pnorm((a[Y[l,1]]*gam[1,Om[Y[l,1]]]) + b[Y[l,1]],T[Y[l,2],Om[Y[l,1]]],tau[Y[l,1],Y[l,2]])
 	for (c in 2:(C-1)){pY[Y[l,1],Y[l,2],c] <- pnorm((a[Y[l,1]]*gam[c,Om[Y[l,1]]]) + b[Y[l,1]],T[Y[l,2],Om[Y[l,1]]],tau[Y[l,1],Y[l,2]]) - sum(pY[Y[l,1],Y[l,2],1:(c-1)])}
 	pY[Y[l,1],Y[l,2],C] <- (1 - sum(pY[Y[l,1],Y[l,2],1:(C-1)]))
@@ -684,14 +709,16 @@ for (l in 1:nobs){
 #Parameters
    for (i in 1:n){
       Om[i] ~ dcat(pi) 
-      E[i] ~ dgamma(pow(Emu[Om[i]],2)*Etau[Om[i]],Emu[Om[i]]*Etau[Om[i]])
-      a[i] ~ dgamma(atau[Om[i]],atau[Om[i]])
+      Elog[i] ~ dnorm(Emu[Om[i]],Etau[Om[i]])
+	  E[i] <- exp(Elog[i])  
+      alog[i] ~ dnorm(amu[Om[i]],atau[Om[i]])T(-2.3,2.3)
+	  a[i] <- exp(alog[i])
       b[i] ~ dnorm(bmu[Om[i]],btau[Om[i]]) }
 
    for (k in 1:m){       
     for (v in 1:V){
      T[k,v] ~ dnorm(Tmu[v],Ttau[v])
-     lam[k,v] ~ dgamma(lamtau[v],lamtau[v])	 }}
+     lam[k,v] ~ dnorm(lammu[v],lamtau[v])T(-2.3,2.3)	 }}
 
    for (v in 1:V){
      gam[1:(C-1),v] <- sort(tgam2[1:(C-1),v])
@@ -704,110 +731,78 @@ for (l in 1:nobs){
 #Hyperparameters	
  for (v in 1:V){
   L[v] <- 1 
-  Tmu[v] ~ dnorm(0,.01)
-  Ttau[v] ~ dgamma(1,.1)
-  lammu[v] <- 1
-  lamtau[v] ~ dgamma(1,0.1) 
-  Emu[v] ~ dgamma(1,1)
-  Etau[v] ~ dgamma(1,1)
-  amu[v] <- 1
-  atau[v] ~ dgamma(4,4)
+  Tmu[v] ~ dnorm(0,.25)
+  Tsig[v] ~ dunif(.25,3)
+  Ttau[v] <- pow(Tsig[v],-2)
+  Emu[v] ~ dnorm(0,.01)
+  Etau[v] ~ dgamma(.01, .01)
+  amu[v] <- 0
+  atau[v] ~ dgamma(.01, .01)T(.01,)
   bmu[v] <- 0
-  btau[v] ~ dgamma(4,4)
+  btau[v] ~ dgamma(.01, .01)
+  lammu[v] <- 0
+  lamsig[v] ~ dunif(.25, 2)
+  lamtau[v] <- pow(lamsig[v],-2)
  }
 }"
 
 mccrm <-
 "model{
    for (l in 1:nobs){ 
-	Y[l,3] ~ dnorm((a[Y[l,1]]*T[Y[l,2],Om[Y[l,1]]])+b[Y[l,1]],pow(a[Y[l,1]],-2)*E[Y[l,1]]) 
-	}
-	
-#Parameters
-   for (i in 1:n){
-      Om[i] ~ dcat(pi) 
-      E[i] ~ dgamma(pow(Emu[Om[i]],2)*Etau[Om[i]],Emu[Om[i]]*Etau[Om[i]])
-      a[i] ~ dgamma(atau[Om[i]],atau[Om[i]])
-      b[i] ~ dnorm(bmu[Om[i]],btau[Om[i]]) }
-
-   for (k in 1:m){
-    for (v in 1:V){
-     T[k,v] ~ dnorm(Tmu[v],Ttau[v]) }}
-
-     pi[1:V] ~ ddirch(L)
-
-#Hyperparameters	
- for (v in 1:V){
-  L[v] <- 1 
-  Tmu[v] ~ dnorm(0,1)
-  Ttau[v] ~ dgamma(1,1)
-  Emu[v] ~ dgamma(1,1)
-  Etau[v] ~ dgamma(0.01,0.01)
-  amu[v] <- 1
-  atau[v] ~ dgamma(0.01,0.01)
-  bmu[v] <- 0
-  btau[v] ~ dgamma(0.01,0.01)
-}}"
-
-mccrmidlog <-
-"model{
-   for (l in 1:nobs){ 
-	Y[l,3] ~ dnorm((a[Y[l,1]]*T[Y[l,2],Om[Y[l,1]]])+b[Y[l,1]],pow(a[Y[l,1]],-2)*E[Y[l,1]]/lam[Y[l,2],Om[Y[l,1]]])
+	Y[l,3] ~ dnorm((a[Y[l,1]]*T[Y[l,2],Om[Y[l,1]]])+b[Y[l,1]],pow(a[Y[l,1]]*E[Y[l,1]],-2))
 	}	  
 
 #Parameters
    for (i in 1:n){
-      Om[i] ~ dcat(pi) 
+      Om[i] ~ dcat(pi)
       Elog[i] ~ dnorm(Emu[Om[i]],Etau[Om[i]])
-	  E[i] <- exp(Elog[i])
-	
-      alog[i] ~ dnorm(amu[Om[i]],atau[Om[i]])
+	  E[i] <- exp(Elog[i])  
+      alog[i] ~ dnorm(amu[Om[i]],atau[Om[i]])T(-2.3,2.3)
 	  a[i] <- exp(alog[i])
-	 
       b[i] ~ dnorm(bmu[Om[i]],btau[Om[i]]) }
 
    for (k in 1:m){ 
     for (v in 1:V){
-     T[k,v] ~ dnorm(Tmu[v],Ttau[v]) 
-	 lamlog[k,v] ~ dnorm(lammu[v],lamtau[v]) 
-	 lam[k,v] <- exp(lamlog[k,v])
+     T[k,v] ~ dnorm(Tmu[v],Ttau[v])
 	 }}
 
      pi[1:V] ~ ddirch(L)
 
 #Hyperparameters	
+
  for (v in 1:V){
   L[v] <- 1 
-  Tmu[v] ~ dnorm(0,1)
-  Ttau[v] ~ dgamma(1,1)
+  Tmu[v] ~ dnorm(0,0.25)
+  Tsig[v] ~ dunif(.25,3)
+  Ttau[v] <- pow(Tsig[v],-2)
   Emu[v] ~ dnorm(0,.01)
-  Etau[v] ~ dgamma(.01,.01)
-  lammu[v] <- 0
-  lamtau[v] ~ dgamma(.01,.01)
+  Etau[v] ~ dgamma(.01, .01)
   amu[v] <- 0
-  atau[v] ~ dgamma(.01,.01)
+  atau[v] ~ dgamma(.01, .01)T(.01,)
   bmu[v] <- 0
-  btau[v] ~ dgamma(.01,.01)
+  btau[v] ~ dgamma(.01, .01)
  }
 }" 
-	
+
 mccrmid <-
 "model{
    for (l in 1:nobs){ 
-	Y[l,3] ~ dnorm((a[Y[l,1]]*T[Y[l,2],Om[Y[l,1]]])+b[Y[l,1]],pow(a[Y[l,1]],-2)*E[Y[l,1]]/lam[Y[l,2],Om[Y[l,1]]])
+	Y[l,3] ~ dnorm((a[Y[l,1]]*T[Y[l,2],Om[Y[l,1]]])+b[Y[l,1]],pow(a[Y[l,1]]*E[Y[l,1]]*exp(lam[Y[l,2],Om[Y[l,1]]]),-2))
 	}	  
 
 #Parameters
    for (i in 1:n){
       Om[i] ~ dcat(pi) 
-      E[i] ~ dgamma(pow(Emu[Om[i]],2)*Etau[Om[i]],Emu[Om[i]]*Etau[Om[i]])
-      a[i] ~ dgamma(atau[Om[i]],atau[Om[i]])
+	  Elog[i] ~ dnorm(Emu[Om[i]],Etau[Om[i]])
+	  E[i] <- exp(Elog[i])
+      alog[i] ~ dnorm(amu[Om[i]],atau[Om[i]])T(-2.3,2.3)
+	  a[i] <- exp(alog[i])
       b[i] ~ dnorm(bmu[Om[i]],btau[Om[i]]) }
 
    for (k in 1:m){ 
     for (v in 1:V){
-     T[k,v] ~ dnorm(Tmu[v],Ttau[v]) 
-	 lam[k,v] ~ dgamma(lamtau[v],lamtau[v]) 
+     T[k,v] ~ dnorm(Tmu[v],Ttau[v])
+	 lam[k,v] ~ dnorm(lammu[v],lamtau[v])T(-2.3,2.3)
 	 }}
 
      pi[1:V] ~ ddirch(L)
@@ -815,18 +810,33 @@ mccrmid <-
 #Hyperparameters	
  for (v in 1:V){
   L[v] <- 1 
-  Tmu[v] ~ dnorm(0,1)
-  Ttau[v] ~ dgamma(1,1)
-  lammu[v] <- 1
-  lamtau[v] ~ dgamma(0.01,0.01)
-  Emu[v] ~ dgamma(1,1)
-  Etau[v] ~ dgamma(0.01,0.01)
-  amu[v] <- 1
-  atau[v] ~ dgamma(0.01,0.01)
+  Tmu[v] ~ dnorm(0,.25)
+  Tsig[v] ~ dunif(.25,3)
+  Ttau[v] <- pow(Tsig[v],-2)
+  Emu[v] ~ dnorm(0,.01)
+  Etau[v] ~ dgamma(.01, .01)
+  amu[v] <- 0
+  atau[v] ~ dgamma(.01, .01)T(.01,)
   bmu[v] <- 0
-  btau[v] ~ dgamma(0.01,0.01)
-  }
-}"
+  btau[v] ~ dgamma(.01, .01)
+  lammu[v] <- 0
+  lamsig[v] ~ dunif(.25, 2)
+  lamtau[v] <- pow(lamsig[v],-2)
+ }
+}" 
+
+## Diffuse Settings
+#  L[v] <- 1 
+#  Tmu[v] ~ dnorm(0,.25)
+#  Ttau[v] ~ dgamma(.01, .01)
+#  Emu[v] ~ dnorm(0,.01)
+#  Etau[v] ~ dgamma(.01, .01)
+#  amu[v] <- 0
+#  atau[v] ~ dgamma(.01, .01)T(.01,)
+#  bmu[v] <- 0
+#  btau[v] ~ dgamma(.01, .01)
+#  lammu[v] <- 0
+#  lamtau[v] ~ dgamma(.01, .01)T(.01,)
 
 ######################
 #Sets up Parameters, Variables, and Data for JAGS for the model selected
@@ -868,19 +878,20 @@ if(itemdiff==0){
 model.file <- mcltrm
 jags.params <- c("T","gam","E","a","b","Tmu","Ttau","Emu","Etau","amu","atau","bmu","btau","Om","pi")
 if(clusters>1){
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V), "E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "Om"= sample(1:V,n,replace=TRUE)  )}
+jags.inits <- function(){ list("tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V),"T"=matrix(rnorm(m*V,0,1),m,V),"Emu"= runif(V,.8,2),"Esig"= runif(V,.4,.6), "asig"= runif(V,.4,.6),"bsig"= runif(V,.4,.6),"Om"= sample(1:V,n,replace=TRUE)   )}
 }else{
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V), "E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1)  )}
+jags.inits <- function(){ list("tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V),"T"=matrix(rnorm(m*V,0,1),m,V),"Emu"= runif(V,.8,2),"Esig"= runif(V,.4,.6), "asig"= runif(V,.4,.6),"bsig"= runif(V,.4,.6)  )}
 }
 
 if(C==2){
 if(clusters>1){
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "E"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "Om"= sample(1:V,n,replace=TRUE)  )} 
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"Emu"= runif(V,.8,2),"Esig"= runif(V,.4,.6),"bsig"= runif(V,.4,.6),"Om"= sample(1:V,n,replace=TRUE)   )}
 }else{
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "E"= runif(n,.8,1.2), "b"= rnorm(n,0,1)  )}
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"Emu"= runif(V,.8,2),"Esig"= runif(V,.4,.6),"bsig"= runif(V,.4,.6)   )}
 }
-model.file <- gsub(pattern="a\\[i\\] ~ dgamma\\(atau\\[Om\\[i\\]\\],atau\\[Om\\[i\\]\\]\\)", "a\\[i\\] <- 1", model.file)
-model.file <- gsub(pattern="atau\\[v\\] ~ dgamma\\(4,4\\)", "atau\\[v\\] <- 0", model.file)
+model.file <- gsub(pattern="a\\[i\\] <- exp\\(alog\\[i\\]\\)", "a\\[i\\] <- 1", model.file)
+model.file <- gsub(pattern="alog\\[i\\] ~ dnorm\\(amu\\[Om\\[i\\]\\],atau\\[Om\\[i\\]\\]\\)T\\(-2.3,2.3\\)", "", model.file)
+model.file <- gsub(pattern="atau\\[v\\] ~ dgamma\\(.01,.01\\)T\\(.01,\\)", "atau\\[v\\] <- 0", model.file)
 model.file <- gsub(pattern="for \\(c in 2\\:\\(C-1\\)\\)", " #for \\(c in 2\\:\\(C-1\\)\\)", model.file)
 model.file <- gsub(pattern="gam\\[1\\:\\(C-1\\),v\\] <- sort\\(tgam2\\[1\\:\\(C-1\\),v\\]\\)", "gam\\[1,v\\] <- 0 }", model.file)
 model.file <- gsub(pattern="for \\(c in 1\\:\\(C-2\\)\\)", "#for \\(c in 1\\:\\(C-2\\)\\)", model.file)
@@ -894,18 +905,19 @@ if(itemdiff==1){
 model.file <- mcltrmid
 jags.params <- c("T","lam","gam","E","a","b","Tmu","Ttau","Emu","Etau","amu","atau","bmu","btau","lammu","lamtau","Om","pi")
 if(clusters>1){
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "lam"= matrix(runif(m*V,.8,1.2),m,V), "tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V), "E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "Om"= sample(1:V,n,replace=TRUE) )}
+jags.inits <- function(){ list("tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V),"T"=matrix(rnorm(m*V,0,1),m,V),"Emu"= runif(V,.8,2),"Esig"= runif(V,.4,.6), "asig"= runif(V,.4,.6),"bsig"= runif(V,.4,.6),"lamsig"= runif(V,.25,.30), "Om"= sample(1:V,n,replace=TRUE)   )}
 }else{
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "lam"= matrix(runif(m*V,.8,1.2),m,V), "tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V), "E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1) )}
+jags.inits <- function(){ list("tgam"=matrix(rnorm((C-2)*V,0,1),(C-2),V),"T"=matrix(rnorm(m*V,0,1),m,V),"Emu"= runif(V,.8,2),"Esig"= runif(V,.4,.6), "asig"= runif(V,.4,.6),"bsig"= runif(V,.4,.6),"lamsig"= runif(V,.25,.30)  )}
 }
 if(C==2){
 if(clusters>1){
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "lam"= matrix(runif(m*V,.8,1.2),m,V), "E"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "Om"= sample(1:V,n,replace=TRUE) )}
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"Emu"= runif(V,.8,2),"Esig"= runif(V,.4,.6),"bsig"= runif(V,.4,.6),"lamsig"= runif(V,.25,.30), "Om"= sample(1:V,n,replace=TRUE)   )}
 }else{
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V), "lam"= matrix(runif(m*V,.8,1.2),m,V), "E"= runif(n,.8,1.2), "b"= rnorm(n,0,1) )}
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"Emu"= runif(V,.8,2),"Esig"= runif(V,.4,.6),"bsig"= runif(V,.4,.6),"lamsig"= runif(V,.25,.30)   )}
 }
-model.file <- gsub(pattern="a\\[i\\] ~ dgamma\\(atau\\[Om\\[i\\]\\],atau\\[Om\\[i\\]\\]\\)", "a\\[i\\] <- 1", model.file)
-model.file <- gsub(pattern="atau\\[v\\] ~ dgamma\\(4,4\\)", "atau\\[v\\] <- 0", model.file)
+model.file <- gsub(pattern="a\\[i\\] <- exp\\(alog\\[i\\]\\)", "a\\[i\\] <- 1", model.file)
+model.file <- gsub(pattern="alog\\[i\\] ~ dnorm\\(amu\\[Om\\[i\\]\\],atau\\[Om\\[i\\]\\]\\)T\\(-2.3,2.3\\)", "", model.file)
+model.file <- gsub(pattern="atau\\[v\\] ~ dgamma\\(.01,.01\\)T\\(.01,\\)", "atau\\[v\\] <- 0", model.file)
 model.file <- gsub(pattern="for \\(c in 2\\:\\(C-1\\)\\)", " #for \\(c in 2\\:\\(C-1\\)\\)", model.file)
 model.file <- gsub(pattern="gam\\[1\\:\\(C-1\\),v\\] <- sort\\(tgam2\\[1\\:\\(C-1\\),v\\]\\)", "gam\\[1,v\\] <- 0 }", model.file)
 model.file <- gsub(pattern="for \\(c in 1\\:\\(C-2\\)\\)", "#for \\(c in 1\\:\\(C-2\\)\\)", model.file)
@@ -927,21 +939,21 @@ jags.data <- list("Y","n","m","V","nobs")
 
 if(itemdiff==0 ){
 model.file <- mccrm
-jags.params <- c("T","E","a","b","Tmu","Ttau","Emu","Etau","amu","atau","bmu","btau","Om","pi")
+jags.params <- c("T","E","a","alog","b","Tmu","Ttau","Emu","Etau","amu","atau","bmu","btau","Om","pi")
 if(clusters>1){
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "Om"= sample(1:V,n,replace=TRUE)   )}
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,.5),m,V),"Emu"= runif(V,.8,2),"Esig"= runif(V,.5,.8), "asig"= runif(V,.4,.6),"bsig"= runif(V,.4,.6), "Om"= sample(1:V,n,replace=TRUE)   )}
 }else{
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1)  )}
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"Emu"= runif(V,.8,2),"Esig"= runif(V,.5,.8), "asig"= runif(V,.4,.6),"bsig"= runif(V,.4,.6)  )}
 }
 }
 
 if(itemdiff==1){
 model.file <- mccrmid
-jags.params <- c("T","E","a","b","lam","Tmu","Ttau","Emu","Etau","amu","atau","bmu","btau","lammu","lamtau","Om","pi")
+jags.params <- c("T","E","a","alog","b","lam","Tmu","Ttau","Emu","Etau","amu","atau","bmu","btau","lammu","lamtau","Om","pi")
 if(clusters>1){
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "lam"= matrix(runif(m*V,.8,1.2),m,V), "Om"= sample(1:V,n,replace=TRUE)   )}
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"Emu"= runif(V,.8,2),"Esig"= runif(V,.4,.6), "asig"= runif(V,.4,.6),"bsig"= runif(V,.4,.6),"lamsig"= runif(V,.25,.30), "Om"= sample(1:V,n,replace=TRUE)   )}
 }else{
-jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"E"= runif(n,.8,1.2), "a"= runif(n,.8,1.2), "b"= rnorm(n,0,1), "lam"= matrix(runif(m*V,.8,1.2),m,V)  )}
+jags.inits <- function(){ list("T"=matrix(rnorm(m*V,0,1),m,V),"Emu"= runif(V,.8,2),"Esig"= runif(V,.4,.6), "asig"= runif(V,.4,.6),"bsig"= runif(V,.4,.6),"lamsig"= runif(V,.25,.30)   )}
 }
 }
 if(clusters==1){ 
@@ -1791,7 +1803,7 @@ deltatmp <- array(NA, c(cctfit$n,cctfit$C+1))
 deltatmp[,1] <- -100000; deltatmp[,cctfit$C+1] <- 1000000
 
 for(samp in 1:cctfit$BUGSoutput$n.sims){
-tautmp <- cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(1/cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]])
+tautmp <- (cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(exp(cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]])))^-2
 deltatmp[,2:(cctfit$C)] <- cctfit$BUGSoutput$sims.list[["a"]][samp,]*t(cctfit$BUGSoutput$sims.list[["gam"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]])+cctfit$BUGSoutput$sims.list[["b"]][samp,]
 
 for(i in 1:cctfit$n){
@@ -1835,10 +1847,10 @@ cctfit$BUGSoutput$sims.list$lam <- array(cctfit$BUGSoutput$sims.list[["lam"]][,]
 }
 if(cctfit$itemdiff == 0){
 if(cctfit$V == 1){
-cctfit$BUGSoutput$sims.list$lam <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$m,1))
+cctfit$BUGSoutput$sims.list$lam <- array(0,c(cctfit$BUGSoutput$n.sims,cctfit$m,1))
 }
 if(cctfit$V > 1){
-cctfit$BUGSoutput$sims.list$lam <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$m,cctfit$V))
+cctfit$BUGSoutput$sims.list$lam <- array(0,c(cctfit$BUGSoutput$n.sims,cctfit$m,cctfit$V))
 }
 }
 
@@ -1848,7 +1860,7 @@ cctfit$BUGSoutput$sims.list$tau <- array(-1,c(cctfit$BUGSoutput$n.sims,cctfit$n,
 cctfit$Lik  <- array(NA, c(cctfit$n,cctfit$m,cctfit$BUGSoutput$n.sims));
 
 for(samp in 1:cctfit$BUGSoutput$n.sims){
-cctfit$BUGSoutput$sims.list[["tau"]][samp,,] <- cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(1/cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]])
+cctfit$BUGSoutput$sims.list[["tau"]][samp,,] <-  (cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(exp(cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]])))^-2
 cctfit$Lik[,,samp] <-  dnorm(cctfit$data,mean=(cctfit$BUGSoutput$sims.list[["a"]][samp,]*t(cctfit$BUGSoutput$sims.list[["T"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]]))+array(cctfit$BUGSoutput$sims.list[["b"]][samp,],c(cctfit$n,cctfit$m)),sd=cctfit$BUGSoutput$sims.list[["a"]][samp,]*(cctfit$BUGSoutput$sims.list[["tau"]][samp,,]^-.5))
 if(cctfit$mval==1){cctfit$Lik[cbind(datob$thena,samp)] <- 1}
 }
@@ -1857,7 +1869,7 @@ cctfit$BUGSoutput$sims.list$deviance <- array(-2*apply(log(cctfit$Lik),3,sum),c(
 cctfit$LogLik  <- array(NA, c(cctfit$BUGSoutput$n.sims));
 
 for(samp in 1:cctfit$BUGSoutput$n.sims){
-tautmp <- cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(1/cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]])
+tautmp <- (cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(exp(cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]])))^-2
 Liktmp <- dnorm(cctfit$data,mean=(cctfit$BUGSoutput$sims.list[["a"]][samp,]*t(cctfit$BUGSoutput$sims.list[["T"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]]))+array(cctfit$BUGSoutput$sims.list[["b"]][samp,],c(cctfit$n,cctfit$m)),sd=cctfit$BUGSoutput$sims.list[["a"]][samp,]*(tautmp^-.5))
 if(cctfit$mval==1){Liktmp[datob$thena] <- 1}
 cctfit$LogLik[samp] <- sum(log(Liktmp))
@@ -1990,6 +2002,9 @@ bgcol <- c("black",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA)
 if(cctfit$C==2){useinvlogit <- 1}else{useinvlogit <- 0}
 
 if(useinvlogit == 1){
+#tmp1 <- cctfit$BUGSoutput$sims.list[["T"]]; cctfit$BUGSoutput$sims.list[["T"]] <- invlogit(cctfit$BUGSoutput$sims.list[["T"]])
+#tmp2 <- cctfit$BUGSoutput$sims.list[["gam"]]; cctfit$BUGSoutput$sims.list[["gam"]] <- invlogit(cctfit$BUGSoutput$sims.list[["gam"]])
+#tmp3 <- cctfit$BUGSoutput$sims.list[["b"]]; cctfit$BUGSoutput$sims.list[["b"]] <- invlogit(cctfit$BUGSoutput$sims.list[["b"]])
 tmp1 <- cctfit$BUGSoutput$sims.list[["T"]]; cctfit$BUGSoutput$sims.list[["T"]] <- invlogit(cctfit$BUGSoutput$sims.list[["T"]])
 tmp2 <- cctfit$BUGSoutput$sims.list[["gam"]]; cctfit$BUGSoutput$sims.list[["gam"]] <- invlogit(cctfit$BUGSoutput$sims.list[["gam"]])
 tmp3 <- cctfit$BUGSoutput$sims.list[["b"]]; cctfit$BUGSoutput$sims.list[["b"]] <- invlogit(cctfit$BUGSoutput$sims.list[["b"]])
@@ -2005,7 +2020,7 @@ cctfit$BUGSoutput$sims.list[["gam"]] <- array(cctfit$BUGSoutput$sims.list[["gam"
 }
 hditmp <- apply(cctfit$BUGSoutput$sims.list[["T"]][,,1],2,hdi)
 if(useinvlogit == 1){
-plot(1:newm,rep(NA,newm),main=expression(paste("Item Truth (",T[vk],") and Thresholds (",gamma[vc],")")),xlab="Item",ylim=c(0,1),ylab="Posterior Mean Value",las=1,pch=21,bg="white",axes=FALSE)
+plot(1:newm,rep(NA,newm),main=expression(paste("Item Truth (",T[vk],") and Thresholds (",gamma[vc],")")),xlab="Item",ylim=c(0,1),ylab="Posterior Mean Invlogit Value",las=1,pch=21,bg="white",axes=FALSE)
 }else{plot(1:newm,rep(NA,newm),main=expression(paste("Item Truth (",T[vk],") and Thresholds (",gamma[vc],")")),xlab="Item",ylim=c(min(hditmp,min(apply(cctfit$BUGSoutput$sims.list[["gam"]],c(2,3),mean))),max(hditmp,max(apply(cctfit$BUGSoutput$sims.list[["gam"]],c(2,3),mean)))),ylab="Posterior Mean Value",las=1,pch=21,bg="white",axes=FALSE)
 }
 for(i in 1:dim(cctfit$BUGSoutput$sims.list[["T"]])[3]){
@@ -2042,9 +2057,7 @@ for(i in 1:dim(cctfit$BUGSoutput$sims.list[["T"]])[3]){
 points(apply(cctfit$BUGSoutput$sims.list[["T"]][,,i],c(2),mean),xlab=expression(paste("Item Truth (",T[vk],") Per Cluster")),ylab="Posterior Mean Value",las=1,ylim=c(0,1),pch=sym[i],bg=bgcol[i])
 text(cctfit$m+(((newm-cctfit$m)/dim(cctfit$BUGSoutput$sims.list[["T"]])[3])*i),mean(cctfit$BUGSoutput$sims.list[["gam"]][,,i]),labels=sapply(c(1:(cctfit$C-1)),function(x) as.expression(substitute(list(gamma[x]),list(x=x)))))
 }
-}
-else{
-
+}else{
 if(useinvlogit == 1){
 plot(1:newm,rep(NA,newm),main=expression(paste("Item Truth (",T[vk],") and Thresholds (",gamma[vc],") Per Culture")),xlab="Item",ylim=c(0,1),ylab="Posterior Mean Value",las=1,pch=21,bg="white",axes=FALSE)
 }else{
@@ -2070,45 +2083,47 @@ if(cctfit$V == 1){
 if(length(dim(cctfit$BUGSoutput$sims.list[["lam"]])) < 3){
 cctfit$BUGSoutput$sims.list[["lam"]] <- array(cctfit$BUGSoutput$sims.list[["lam"]],c(cctfit$BUGSoutput$n.sims,cctfit$m,1))}
 hditmp <- apply(cctfit$BUGSoutput$sims.list[["lam"]][,,1],2,hdi)
-plot(1:cctfit$m,rep(NA,cctfit$m),main=expression(paste("Item Difficulty (",lambda[vk],")")),xlab="Item",ylim=c(min(hditmp),max(hditmp)),ylab="Posterior Mean Value",las=1,pch=21,bg="white")
+plot(1:cctfit$m,rep(NA,cctfit$m),main=expression(paste("Item Difficulty (",lambda[vk],")")),xlab="Item",ylim=c(min(hditmp),max(hditmp)),ylab="Posterior Mean Log Value",las=1,pch=21,bg="white")
 for(i in 1:dim(cctfit$BUGSoutput$sims.list[["lam"]])[3]){
-points(apply(cctfit$BUGSoutput$sims.list[["lam"]][,,i],c(2),mean),xlab=expression(paste("Item Difficulty (",lambda[vk],") Per Cluster")),ylab="Posterior Mean Value",las=1,ylim=c(0,1),pch=sym[i],bg=bgcol[i])
+points(apply(cctfit$BUGSoutput$sims.list[["lam"]][,,i],c(2),mean),xlab=expression(paste("Item Difficulty (",lambda[vk],") Per Cluster")),ylab="Posterior Mean Log Value",las=1,ylim=c(0,1),pch=sym[i],bg=bgcol[i])
 }
 segments(1:cctfit$m,hditmp[1,], 1:cctfit$m, hditmp[2,])
 arrows(1:cctfit$m,hditmp[1,], 1:cctfit$m, hditmp[2,],code=3,angle=90,length=.025)
 }else{plot(1:cctfit$m,rep(NA,cctfit$m),main=expression(paste("Item Difficulty (",lambda[vk],") Per Culture")),xlab="Item",ylim=c(min(apply(cctfit$BUGSoutput$sims.list[["lam"]],c(2,3),mean)),max(apply(cctfit$BUGSoutput$sims.list[["lam"]],c(2,3),mean))),ylab="Posterior Mean Value",las=1,pch=21,bg="white")
 for(i in 1:dim(cctfit$BUGSoutput$sims.list[["lam"]])[3]){
-points(apply(cctfit$BUGSoutput$sims.list[["lam"]][,,i],c(2),mean),xlab=expression(paste("Item Difficulty (",lambda[vk],") Per Cluster")),ylab="Posterior Mean Value",las=1,ylim=c(0,1),pch=sym[i],bg=bgcol[i])
+points(apply(cctfit$BUGSoutput$sims.list[["lam"]][,,i],c(2),mean),xlab=expression(paste("Item Difficulty (",lambda[vk],") Per Cluster")),ylab="Posterior Mean Log Value",las=1,ylim=c(0,1),pch=sym[i],bg=bgcol[i])
 }
 }
-
 }else{
-plot(c(1:cctfit$m),rep(.5,cctfit$m),main=expression(paste("Item Difficulty (",lambda[vk],")")),xlab="Item",ylab="Posterior Mean Value",las=1,ylim=c(0,1),pch=sym[1],bg="white",col="grey")
+plot(c(1:cctfit$m),rep(.5,cctfit$m),main=expression(paste("Item Difficulty (",lambda[vk],")")),xlab="Item",ylab="Posterior Mean Log Value",las=1,ylim=c(0,1),pch=sym[1],bg="white",col="grey")
 points(c(par("usr")[1],par("usr")[2]),c(par("usr")[3],par("usr")[4]),type="l",col="grey")
 points(c(par("usr")[1],par("usr")[2]),c(par("usr")[4],par("usr")[3]),type="l",col="grey")
 }
 
+
 hditmp <- apply(cctfit$BUGSoutput$sims.list$E,2,hdi)
-plot(cctfit$BUGSoutput$mean$E,main=expression(paste("Respondent Competency (",E[i],")")),xlab="Respondent",ylab="Posterior Mean Value",las=1,ylim=c(0,max(hditmp)),pch=sym[cctfit$respmem],bg=bgcol[cctfit$respmem])
+plot(cctfit$BUGSoutput$mean$E,main=expression(paste("Respondent Standard Error (",E[i],")")),xlab="Respondent",ylab="Posterior Mean Value",las=1,ylim=c(0,max(hditmp)),pch=sym[cctfit$respmem],bg=bgcol[cctfit$respmem])
 segments(1:cctfit$n,hditmp[1,], 1:cctfit$n, hditmp[2,])
 arrows(1:cctfit$n,hditmp[1,], 1:cctfit$n, hditmp[2,],code=3,angle=90,length=.025)
 
 if(useinvlogit == 1){
 plot(invlogit(cctfit$BUGSoutput$mean$b)-.5,main=expression(paste("Respondent Shift Bias (",b[i],")")),xlab="Respondent",ylab="Posterior Mean Value",las=1,ylim=c(-.5,.5),pch=sym[cctfit$respmem],bg=bgcol[cctfit$respmem])
-hditmp <- apply(cctfit$BUGSoutput$sims.list$b-.5,2,hdi) # because this is invlogit transformed still
+hditmp <- apply(cctfit$BUGSoutput$sims.list$b-.5,2,hdi) # because this is invprobit transformed still
 segments(1:cctfit$n,hditmp[1,], 1:cctfit$n, hditmp[2,])
 arrows(1:cctfit$n,hditmp[1,], 1:cctfit$n, hditmp[2,],code=3,angle=90,length=.025)
 }else{
-plot(-5000, -5000, main=expression(paste("Category Usage Bias (",a[i]," and ",b[i],")")),xlim=c(min(-1.6,-abs(cctfit$BUGSoutput$mean$b)),max(1.6,cctfit$BUGSoutput$mean$b)), ylim=c(min(-.6,cctfit$BUGSoutput$mean$a),min(3,max(2.4,cctfit$BUGSoutput$mean$a))),xlab=expression(paste("Respondent Shift Bias (",b[i],")")),
-ylab=expression(paste("Respondent Scale Bias (",a[i],")")),las=1,pch=21)
-points(cbind(cctfit$BUGSoutput$mean$b,cctfit$BUGSoutput$mean$a),xlab="Respondent",ylab="Posterior Mean Value",las=1,ylim=c(0,max(hditmp)),pch=sym[cctfit$respmem],bg=bgcol[cctfit$respmem])
-segments(-1,1,1,1)
-segments(0,0,0,2)
-text(0,2.25,"Middle Categories",cex=.8)
-text(0,-.25,"Outer Categories",cex=.8)
-text(-1.3,1,"Left \n Categories",cex=.8)
-text(1.3,1,"Right \n Categories",cex=.8)
+loga <- apply(log(cctfit$BUGSoutput$sims.list[["a"]]),2,mean)
+plot(-5000, -5000, main=expression(paste("Category Usage Bias (",a[i]," and ",b[i],")")),xlim=c(min(-1.6,-abs(cctfit$BUGSoutput$mean$b)),max(1.6,cctfit$BUGSoutput$mean$b)), ylim=c(min(-1,loga),max(1,loga)),xlab=expression(paste("Respondent Shift Bias (",b[i],")")),
+ylab=expression(paste("Log Respondent Scale Bias (",a[i],")")),las=1,pch=21)
+points(cbind(cctfit$BUGSoutput$mean$b,loga),xlab="Respondent",ylab="Posterior Mean Value",las=1,ylim=c(0,max(hditmp)),pch=sym[cctfit$respmem],bg=bgcol[cctfit$respmem])
+segments(.625*par("usr")[1],0,.625*par("usr")[2],0)
+segments(0,.725*par("usr")[3],0,.725*par("usr")[4])
+text(0,.875*par("usr")[3],"Middle Categories",cex=.8)
+text(0,.875*par("usr")[4],"Outer Categories",cex=.8)
+text(.775*par("usr")[1],0,"Left \n Categories",cex=.8)
+text(.775*par("usr")[2],0,"Right \n Categories",cex=.8)
 }
+
 
 if(useinvlogit == 1){
 cctfit$BUGSoutput$sims.list[["T"]] <- tmp1 
@@ -2150,32 +2165,37 @@ points(apply(cctfit$BUGSoutput$sims.list[["lam"]][,,i],c(2),mean),xlab=expressio
 }
 segments(1:cctfit$m,hditmp[1,], 1:cctfit$m, hditmp[2,])
 arrows(1:cctfit$m,hditmp[1,], 1:cctfit$m, hditmp[2,],code=3,angle=90,length=.025)
-}else{plot(1:cctfit$m,rep(NA,cctfit$m),main=expression(paste("Item Difficulty (",lambda[vk],") Per Culture")),xlab="Item",ylim=c(min(apply(cctfit$BUGSoutput$sims.list[["lam"]],c(2,3),mean)),max(apply(cctfit$BUGSoutput$sims.list[["lam"]],c(2,3),mean))),ylab="Posterior Mean Value",las=1,pch=21,bg="white")
+}else{plot(1:cctfit$m,rep(NA,cctfit$m),main=expression(paste("Item Difficulty (",lambda[vk],") Per Culture")),xlab="Item",ylim=c(min(apply(cctfit$BUGSoutput$sims.list[["lam"]],c(2,3),mean)),max(apply(cctfit$BUGSoutput$sims.list[["lam"]],c(2,3),mean))),ylab="Posterior Mean Log Value",las=1,pch=21,bg="white")
 for(i in 1:dim(cctfit$BUGSoutput$sims.list[["lam"]])[3]){
-points(apply(cctfit$BUGSoutput$sims.list[["lam"]][,,i],c(2),mean),xlab=expression(paste("Item Difficulty (",lambda[vk],") Per Cluster")),ylab="Posterior Mean Value",las=1,ylim=c(0,1),pch=sym[i],bg=bgcol[i])
+points(apply(cctfit$BUGSoutput$sims.list[["lam"]][,,i],c(2),mean),xlab=expression(paste("Item Difficulty (",lambda[vk],") Per Cluster")),ylab="Posterior Mean Log Value",las=1,ylim=c(0,1),pch=sym[i],bg=bgcol[i])
 }
 }
 }else{
-plot(c(1:cctfit$m),rep(.5,cctfit$m),main=expression(paste("Item Difficulty (",lambda[vk],")")),xlab="Item",ylab="Posterior Mean Value",las=1,ylim=c(0,1),pch=sym[1],bg="white",col="grey")
+plot(c(1:cctfit$m),rep(.5,cctfit$m),main=expression(paste("Item Difficulty (",lambda[vk],")")),xlab="Item",ylab="Posterior Mean Log Value",las=1,ylim=c(0,1),pch=sym[1],bg="white",col="grey")
 points(c(par("usr")[1],par("usr")[2]),c(par("usr")[3],par("usr")[4]),type="l",col="grey")
 points(c(par("usr")[1],par("usr")[2]),c(par("usr")[4],par("usr")[3]),type="l",col="grey")
 }
 
 hditmp <- apply(cctfit$BUGSoutput$sims.list$E,2,hdi)
-plot(cctfit$BUGSoutput$mean$E,main=expression(paste("Respondent Competency (",E[i],")")),xlab="Respondent",ylab="Posterior Mean Value",las=1,ylim=c(0,max(hditmp)),pch=sym[cctfit$respmem],bg=bgcol[cctfit$respmem])
+plot(cctfit$BUGSoutput$mean$E,main=expression(paste("Respondent Standard Error (",E[i],")")),xlab="Respondent",ylab="Posterior Mean Value",las=1,ylim=c(min(hditmp),max(hditmp)),pch=sym[cctfit$respmem],bg=bgcol[cctfit$respmem])
 segments(1:cctfit$n,hditmp[1,], 1:cctfit$n, hditmp[2,])
 arrows(1:cctfit$n,hditmp[1,], 1:cctfit$n, hditmp[2,],code=3,angle=90,length=.025)
+#text(cctfit$n/4.25,1.3*par("usr")[3],"More Knowledgeable",cex=.8)
+#text(cctfit$n/4.25,.9*par("usr")[4],"Less Knowledgeable",cex=.8)
 
-plot(-5000, -5000, main=expression(paste("Appraisal Bias (",a[i]," and ",b[i],")")),xlim=c(min(-2.8,-abs(cctfit$BUGSoutput$mean$b)),max(2.8,cctfit$BUGSoutput$mean$b)), ylim=c(min(-.6,cctfit$BUGSoutput$mean$a),min(3,max(2.4,cctfit$BUGSoutput$mean$a))),xlab=expression(paste("Respondent Shift Bias (",b[i],")")),
-ylab=expression(paste("Respondent Scale Bias (",a[i],")")),las=1,pch=21)
-points(cbind(cctfit$BUGSoutput$mean$b,cctfit$BUGSoutput$mean$a),xlab="Respondent",ylab="Posterior Mean Value",las=1,ylim=c(0,max(hditmp)),pch=sym[cctfit$respmem],bg=bgcol[cctfit$respmem])
-segments(-2,1,2,1)
-segments(0,0,0,2)
-text(0,2.25,"Middle Values",cex=.8)
-text(0,-.25,"Outer Values",cex=.8)
-text(-2.5,1,"Left \n Values",cex=.8)
-text(2.5,1,"Right \n Values",cex=.8)
+
+loga <- apply(log(cctfit$BUGSoutput$sims.list[["a"]]),2,mean)
+plot(-5000, -5000, main=expression(paste("Category Usage Bias (",a[i]," and ",b[i],")")),xlim=c(min(-1.6,-abs(cctfit$BUGSoutput$mean$b)),max(1.6,cctfit$BUGSoutput$mean$b)), ylim=c(min(-1,loga),max(1,loga)),xlab=expression(paste("Respondent Shift Bias (",b[i],")")),
+ylab=expression(paste("Log Respondent Scale Bias (",a[i],")")),las=1,pch=21)
+points(cbind(cctfit$BUGSoutput$mean$b,loga),xlab="Respondent",ylab="Posterior Mean Value",las=1,ylim=c(0,max(hditmp)),pch=sym[cctfit$respmem],bg=bgcol[cctfit$respmem])
+segments(.625*par("usr")[1],0,.625*par("usr")[2],0)
+segments(0,.725*par("usr")[3],0,.725*par("usr")[4])
+text(0,.875*par("usr")[3],"Middle Categories",cex=.8)
+text(0,.875*par("usr")[4],"Outer Categories",cex=.8)
+text(.775*par("usr")[1],0,"Left \n Categories",cex=.8)
+text(.775*par("usr")[2],0,"Right \n Categories",cex=.8)
 }
+
 
 if(saveplots==1 || saveplots==2){dev.off()}
 
@@ -2261,7 +2281,19 @@ for(i in 1:length(ind)){
 suppressMessages(try(eigv[i,] <- fa(tmp3[,,i])$values[1:leigv],silent=TRUE))}
 wch <- -which(eigv[,1] == -1); 
 if(length(wch)==0){cctfit$ppeig <-  eigv}else{cctfit$ppeig <-  eigv[-which(eigv[,1] == -1),]}
+
+if(sum(apply(cctfit$data,1,function(x) sd(x,na.rm=TRUE)) == 0) > 0){
+tmp <- cctfit$data
+if(sum(apply(datob$dat,1,function(x) sd(x,na.rm=TRUE)) == 0) == 1){
+tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE)) == 0),1] <-  min(tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE)) == 0),1]+.01,.99)
+}else{
+tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE)) == 0),1] <- sapply(apply(tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE)) == 0),],1,mean),function(x) min(x+.01,.99))
+}
+cctfit$dateig <- suppressMessages(fa(cor(t(tmp)))$values[1:leigv])
+}else{
 cctfit$dateig <-  suppressMessages(fa(cor(t(cctfit$data)))$values[1:leigv])
+}
+
 options(warn=0)
 
 if(cctfit$V==1){
@@ -2338,7 +2370,7 @@ cctfit$ppY <- array(NA, c(cctfit$n,cctfit$m,subsetsize));
 cctfit$ppX <- array(NA, c(cctfit$n,cctfit$m,subsetsize));
 
 for(samp in indices){
-tautmp <- cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(1/cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]])
+tautmp <- (cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(exp(cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]])))^-2
 
 cctfit$ppX[,,which(indices == samp)] <- matrix(
 rnorm((cctfit$n*cctfit$m),t(cctfit$BUGSoutput$sims.list[["T"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]]),(tautmp^(-.5))), 
@@ -2435,6 +2467,10 @@ if(cctfit$whmodel=="CRM"){
 invlogit <- function(x){x <- 1 / (1 + exp(-x)); return(x)}
 logit <- function(x){x <- log(x/(1-x)); return(x)}
 
+usetransform <- 0
+
+version2 <- 1
+
 if(cctfit$V == 1){
 cctfit$V <- 1;
 cctfit$BUGSoutput$sims.list$Om <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$n));
@@ -2447,10 +2483,10 @@ cctfit$BUGSoutput$sims.list$lam <- array(cctfit$BUGSoutput$sims.list[["lam"]][,]
 }
 if(cctfit$itemdiff == 0){
 if(cctfit$V == 1){
-cctfit$BUGSoutput$sims.list$lam <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$m,1))
+cctfit$BUGSoutput$sims.list$lam <- array(0,c(cctfit$BUGSoutput$n.sims,cctfit$m,1))
 }
 if(cctfit$V > 1){
-cctfit$BUGSoutput$sims.list$lam <- array(1,c(cctfit$BUGSoutput$n.sims,cctfit$m,cctfit$V))
+cctfit$BUGSoutput$sims.list$lam <- array(0,c(cctfit$BUGSoutput$n.sims,cctfit$m,cctfit$V))
 }
 }
 
@@ -2458,21 +2494,32 @@ cctfit$ppY <- array(NA, c(cctfit$n,cctfit$m,subsetsize));
 cctfit$ppX <- array(NA, c(cctfit$n,cctfit$m,subsetsize));
 
 for(samp in indices){
-tautmp <- cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(1/cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]])
+tautmp <- (cctfit$BUGSoutput$sims.list[["E"]][samp,]*t(exp(cctfit$BUGSoutput$sims.list[["lam"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]])))^-2
 
 cctfit$ppY[,,which(indices == samp)] <- matrix(
 rnorm((cctfit$n*cctfit$m),(cctfit$BUGSoutput$sims.list[["a"]][samp,]*t(cctfit$BUGSoutput$sims.list[["T"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]]))+matrix(rep(cctfit$BUGSoutput$sims.list[["b"]][samp,],cctfit$m),cctfit$n,cctfit$m),
 (cctfit$BUGSoutput$sims.list[["a"]][samp,]*(tautmp^(-.5)))), 
 cctfit$n,cctfit$m)
 
-cctfit$ppX[,,which(indices == samp)] <- (array(rep(1/cctfit$BUGSoutput$sims.list[["a"]][samp,],times=cctfit$m),c(cctfit$n,cctfit$m))*(cctfit$ppY[,,which(indices == samp)]))-matrix(rep(cctfit$BUGSoutput$sims.list[["b"]][samp,],times=cctfit$m),c(cctfit$n,cctfit$m))
+cctfit$ppX[,,which(indices == samp)] <- matrix(
+rnorm((cctfit$n*cctfit$m),t(cctfit$BUGSoutput$sims.list[["T"]][samp,,cctfit$BUGSoutput$sims.list[["Om"]][samp,]]),tautmp^(-.5)),c(cctfit$n,cctfit$m))
 }
 
-#if(sum(cctfit$ppX < logit(.02)) > 0){cctfit$ppX[cctfit$ppX < logit(.02)] <- logit(.02)}  #logit(.02) = -3.89182
-#if(sum(cctfit$ppY < logit(.02)) > 0){cctfit$ppY[cctfit$ppY < logit(.02)] <- logit(.02)}  #logit(.02) = -3.89182
+if(usetransform==1){
+if(sum(cctfit$ppX < logit(.001)) > 0){cctfit$ppX[cctfit$ppX < logit(.001)] <- logit(.001)}  
+if(sum(cctfit$ppY < logit(.001)) > 0){cctfit$ppY[cctfit$ppY < logit(.001)] <- logit(.001)}  
 
-#if(sum(cctfit$ppX > logit(.98)) > 0){cctfit$ppX[cctfit$ppX > logit(.98)] <- logit(.98)}  #logit(.98) = 3.89182
-#if(sum(cctfit$ppY > logit(.98)) > 0){cctfit$ppY[cctfit$ppY > logit(.98)] <- logit(.98)}  #logit(.98) = 3.89182
+if(sum(cctfit$ppX > logit(.999)) > 0){cctfit$ppX[cctfit$ppX > logit(.999)] <- logit(.999)}  
+if(sum(cctfit$ppY > logit(.999)) > 0){cctfit$ppY[cctfit$ppY > logit(.999)] <- logit(.999)}  
+}
+
+if(usetransform==2){
+if(sum(cctfit$ppX < logit(.0001)) > 0){cctfit$ppX[cctfit$ppX < logit(.0001)] <- logit(.0001)}  
+if(sum(cctfit$ppY < logit(.0001)) > 0){cctfit$ppY[cctfit$ppY < logit(.0001)] <- logit(.0001)}  
+
+if(sum(cctfit$ppX > logit(.9999)) > 0){cctfit$ppX[cctfit$ppX > logit(.9999)] <- logit(.9999)}  
+if(sum(cctfit$ppY > logit(.9999)) > 0){cctfit$ppY[cctfit$ppY > logit(.9999)] <- logit(.9999)}  
+}
 
 cctfit$mean$ppY <- rowMeans(cctfit$ppY[,,],dims=2)
 
@@ -2496,35 +2543,64 @@ if(length(wch)==0){cctfit$ppeig <-  eigv}else{cctfit$ppeig <-  eigv[-which(eigv[
 cctfit$dateig <-  suppressMessages(fa(cor(t(cctfit$data)))$values[1:leigv])
 options(warn=0)
 
+#VDI Check
+
+usetransform <- 0
+
+if(usetransform == 0){
+invlogit <- function(x){return(x)}
+}
+
+
 if(cctfit$V==1){
 vdi <- matrix(-1,dim(cctfit$ppY)[3],1)
 varvec <- array(-1,c(length(ind),dim(cctfit$ppY)[2]))
 
 for(i in 1:length(ind)){
-varvec[i,] <- apply(invlogit(cctfit$ppY[,,i]),2,var)  
+varvec[i,] <- apply(invlogit(cctfit$ppY[,,i]),2,var)
+if(version2 == 1){
+varvec[i,] <- apply(invlogit(cctfit$ppX[,,i]),2,var)
+} 
 }
 vdi <- apply(varvec,1,var)
 cctfit$ppVDI <- apply(varvec,1,var) 
 
 cctfit$datVDI <- var(apply(invlogit(cctfit$data),2,var))  
 
+if(version2 == 1){
+cctfit$datVDI <- var(apply(invlogit((array(rep(1/cctfit$BUGSoutput$mean$a,times=cctfit$m),c(cctfit$n,cctfit$m))*cctfit$data)-matrix(rep(cctfit$BUGSoutput$mean$b,cctfit$m),cctfit$n,cctfit$m)),2,var))  
+} 
+
 }
 if(cctfit$V>1){
 varvec <- array(NA,c(length(ind),dim(cctfit$ppY)[2],cctfit$V))
 cctfit$datVDI  <- array(NA,c(1,cctfit$V))
 options(warn=-3)
+datest <- t(sapply(1:cctfit$n,function(i) ((1/mean(cctfit$BUGSoutput$sims.list$a[cctfit$BUGSoutput$sims.list$Om[,i] == cctfit$respmem[i],i]))*
+cctfit$data[i,])-(mean(cctfit$BUGSoutput$sims.list$b[cctfit$BUGSoutput$sims.list$Om[,i] == cctfit$respmem[i],i]))
+))
+
 for(v in 1:cctfit$V){
 for(i in 1:length(ind)){
 if(sum(cctfit$BUGSoutput$sims.list$Om[ind[i],] == v)>1){
 suppressMessages(try(varvec[i,,v] <- apply(invlogit(cctfit$ppY[cctfit$BUGSoutput$sims.list$Om[ind[i],] == v,,i]),2,var),silent=TRUE))
+if(version2 == 1){
+suppressMessages(try(varvec[i,,v] <- apply(invlogit(cctfit$ppX[cctfit$BUGSoutput$sims.list$Om[ind[i],] == v,,i]),2,var),silent=TRUE))
+} 
 }else{
 suppressMessages(try(varvec[i,,v] <- var(invlogit(cctfit$ppY[cctfit$BUGSoutput$sims.list$Om[ind[i],] == v,,i])),silent=TRUE)) 
+if(version2 == 1){
+suppressMessages(try(varvec[i,,v] <- var(invlogit(cctfit$ppX[cctfit$BUGSoutput$sims.list$Om[ind[i],] == v,,i])),silent=TRUE)) 
+} 
+
 }
 }
 if(sum(cctfit$respmem == v)>1){
-cctfit$datVDI[v] <- var(apply(invlogit(cctfit$data[cctfit$respmem == v,]),2,var)) 
+cctfit$datVDI[v] <- var(apply(datest[cctfit$respmem == v ,],2,var))
+
 }else{
-cctfit$datVDI[v] <- var(invlogit(cctfit$data[cctfit$respmem == v,])) 
+cctfit$datVDI[v] <- var(datest[cctfit$respmem == v ,])
+
 }
 }
 options(warn=0)
@@ -2540,6 +2616,9 @@ for(v in 1:dim(cctfit$ppVDI)[2]){
 if(identical(unique(cctfit$ppVDI[,v]),c(NA,0)) || identical(unique(cctfit$ppVDI[,v]),c(0,NA))){cctfit$ppVDI[,v] <- NA}
 }
 }
+if(usetransform == 0){
+invlogit <-  function(x){x <- 1 / (1 + exp(-x)); return(x)}
+} 
 
 rm(vdi, varvec)
 rm(eigv,leigv,tmp,tmp2,tmp3,ind);
@@ -2841,11 +2920,13 @@ vdi <- matrix(-1,dim(cctfit$ppY)[3],1)
 varvec <- array(-1,c(length(ind),dim(cctfit$ppY)[2]))
 
 for(i in 1:length(ind)){
-varvec[i,] <- apply(invlogit(cctfit$ppY[,,i]),2,var)  
+#varvec[i,] <- apply(invlogit(cctfit$ppY[,,i]),2,var) 
+varvec[i,] <- apply(invlogit(cctfit$ppY[,,i]),2,var)
 }
 vdi <- apply(varvec,1,var)
 cctfit$ppVDI <- apply(varvec,1,var) 
 
+#cctfit$datVDI <- var(apply(invlogit(cctfit$data),2,var))  
 cctfit$datVDI <- var(apply(invlogit(cctfit$data),2,var))  
 
 }
@@ -2856,14 +2937,18 @@ options(warn=-3)
 for(v in 1:cctfit$V){
 for(i in 1:length(ind)){
 if(sum(cctfit$BUGSoutput$sims.list$Om[ind[i],] == v)>1){
+#suppressMessages(try(varvec[i,,v] <- apply(invlogit(cctfit$ppY[cctfit$BUGSoutput$sims.list$Om[ind[i],] == v,,i]),2,var),silent=TRUE))
 suppressMessages(try(varvec[i,,v] <- apply(invlogit(cctfit$ppY[cctfit$BUGSoutput$sims.list$Om[ind[i],] == v,,i]),2,var),silent=TRUE))
 }else{
+#suppressMessages(try(varvec[i,,v] <- var(invlogit(cctfit$ppY[cctfit$BUGSoutput$sims.list$Om[ind[i],] == v,,i])),silent=TRUE)) 
 suppressMessages(try(varvec[i,,v] <- var(invlogit(cctfit$ppY[cctfit$BUGSoutput$sims.list$Om[ind[i],] == v,,i])),silent=TRUE)) 
 }
 }
 if(sum(cctfit$respmem == v)>1){
+#cctfit$datVDI[v] <- var(apply(invlogit(cctfit$data[cctfit$respmem == v,]),2,var)) 
 cctfit$datVDI[v] <- var(apply(invlogit(cctfit$data[cctfit$respmem == v,]),2,var)) 
 }else{
+#cctfit$datVDI[v] <- var(invlogit(cctfit$data[cctfit$respmem == v,])) 
 cctfit$datVDI[v] <- var(invlogit(cctfit$data[cctfit$respmem == v,])) 
 }
 }
