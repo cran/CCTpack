@@ -7,7 +7,7 @@ Generate a scree plot
 Creates a screeplot of the data, providing the first 8 factors and their magnitudes.
 }
 \usage{
-cctscree(data, polych = 0)
+cctscree(data, polych = FALSE)
 }
 \arguments{
   \item{data}{a 2-dimensional matrix or array, missing values should be input as NA.}

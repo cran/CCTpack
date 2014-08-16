@@ -7,11 +7,11 @@
 Plots (and calculates if not calculated already), the posterior predictive model checks for the cctfit object
 }
 \usage{
-cctppc(cctfit, polych = 0)
+cctppc(cctfit, polych = FALSE)
 }
 \arguments{
   \item{cctfit}{The \code{cctfit} object as obtained from the \code{cctapply()} function.}
-  \item{polych}{used for ordinal data only, if the polychoric correlations, rather than Pearson correlations, should be used (for the posterior predictive checks) then input '1' -- these take a long time to calculate but are more precise in the ordinal data case.}
+  \item{polych}{used for ordinal data only, if the polychoric correlations, rather than Pearson correlations, should be used (for the posterior predictive checks) -- these take a long time to calculate but are more precise in the ordinal data case.}
 }
 \details{
 Generates 500 posterior predictive data sets that are randomly sampled from the posterior predictive data; it uses these to calculate 2 posterior predictive checks that respectively pertain to fitting the consensus structure of the data (the number of latent cultures), and if heterogeneous item difficulty should be used.
@@ -21,7 +21,7 @@ returns the cctfit object with the posterior predictive data and checks saved.
 }
 \examples{
 data(hotcold)
-# cctfit <- cctapply(data = hotcold, clusters = 2, itemdiff = 1, samples = 10000, 
-#                     chains = 3, burnin = 2000, runchecks = 0)
+# cctfit <- cctapply(data = hotcold, clusters = 2, itemdiff = TRUE, samples = 10000, 
+#                     chains = 3, burnin = 2000, runchecks = FALSE)
 # cctfit <- cctppc(cctfit)
 }

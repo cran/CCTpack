@@ -19,7 +19,7 @@ Saves the \code{cctfit} object as an .Rdata file, as well as .jpeg and .eps file
 }
 \examples{
 data(hotcold)
-# cctfit <- cctapply(data = hotcold, clusters = 2, itemdiff = 1, samples = 10000, 
-#                     chains = 3, burnin = 2000, runchecks = 1)
+# cctfit <- cctapply(data = hotcold, clusters = 2, itemdiff = TRUE, samples = 10000, 
+#                     chains = 3, burnin = 2000, runchecks = TRUE)
 # cctexport(cctfit, filename = "C:/CCTpack/CCTpackdata.Rdata")
 }
