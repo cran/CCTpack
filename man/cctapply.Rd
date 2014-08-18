@@ -9,7 +9,7 @@ loads the data, fits the appropriate model, runs the posterior predictive checks
 \usage{
 cctapply(data, clusters = 1, itemdiff = FALSE, samples = 10000, chains = 3,
          burnin = 2000, thinning = 1, runchecks = TRUE, exportfilename = "",
-         polych = FALSE, parallel = FALSE, seed = NULL)
+         polych = FALSE, parallel = FALSE, seed = NULL,plotr=TRUE)
 }
 \arguments{
   \item{data}{a 2-dimensional matrix or array, missing values should be input as NA.}
@@ -24,6 +24,7 @@ cctapply(data, clusters = 1, itemdiff = FALSE, samples = 10000, chains = 3,
   \item{polych}{used for ordinal data only, if the polychoric correlations, rather than Pearson correlations, should be used (for the posterior predictive checks) -- these take a long time to calculate but are more precise in the ordinal data case.}
   \item{parallel}{Whether the inference should be computed in parallel (1 chain per logical processor)}
   \item{seed}{Set the random number seed here (to reproduce results as before). If not specified, the seed is randomly generated.}
+    \item{plotr}{Whether to plot the posterior mean results for each parameter. Note: \code{runchecks = TRUE} will plot the posterior predictive checks after the posterior mean results. The posterior mean results plot can be later called via \code{cctresults()}.}
 }
 \details{
 This is an "all-in-one" function for the GUI. 

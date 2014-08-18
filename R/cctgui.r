@@ -1,132 +1,177 @@
 ######################
+#Begin CCTpack
+######################
+.onLoad <- function(libname, pkgname) {
+  assign("pkg_globals", new.env(), envir=parent.env(environment()))
+}
+
+######################
 #Initializations
 ######################
 
 options(warn=-3)
+### Some users have reported memory allocation errors when a high limit is not set here.
 suppressMessages(try(memory.limit(10000),silent=TRUE))
 suppressMessages(try(memory.limit(20000),silent=TRUE))
 options(warn=0)
+
+######################
+#Supplementary Functions
+######################
 
 Mode <- function(x) {ux <- unique(x); ux[which.max(tabulate(match(x, ux)))] }
 probit <- function(x) {probval <- qnorm(x,0,1); return(probval)}
 invprobit <- function(x) {invprobval <- pnorm(x,0,1); return(invprobval)}
 
-invprobitident <- function(x) {return(x)}
-
-globalVariables(names = c("cctfit","datob","polyvar","alltraceplot","dtraceplot","samplesvar","chainsvar","burninvar","thinvar","culturesvar","datframe","itemdiffvar","paravar",
-                          "plotresults.but","doppc.but","cultup.but","cultdown.but","para.but","item.but","exportresults.but","screeplot.but","applymodel.but","poly.but","datafiletxt","resptxt","itemtxt","dattypetxt","modeltxt","datframe4","polyyes","polyno","polywind"))
-
 ######################
 #CCTpack GUI, invoked with the command cctgui()
 ######################
 cctgui <- function(){
-  polywind <- samplesvar <- chainsvar <- burninvar <- thinvar <- culturesvar <- datframe <- datframe2 <- datframe3 <- datframe4 <- applyframe <- resultsframe <- samples.entry <- settingsframe <- chains.entry <- burnin.entry <- thin.entry <- cultures.entry <- loaddata.but <- screeplot.but <- applymodel.but <- plotresults.but <- doppc.but <- exportresults.but <- itemdiffvar <- polyvar <- paravar <- para.but <- cultupfuncbutton <- cultdownfuncbutton <- cultdown.but <- cultup.but <- poly.but <- item.but <- datafiletxt <- resptxt <- itemtxt <- dattypetxt <- modeltxt <- NULL
-  rm(polywind, samplesvar, chainsvar, burninvar, thinvar, culturesvar, datframe, datframe2, datframe3, datframe4, applyframe, resultsframe, settingsframe, samples.entry, chains.entry, burnin.entry, thin.entry, cultures.entry, loaddata.but, screeplot.but, applymodel.but, plotresults.but, doppc.but, exportresults.but, itemdiffvar, polyvar, poly.but, datafiletxt, resptxt, itemtxt, dattypetxt, modeltxt, paravar, para.but,cultupfuncbutton,cultdownfuncbutton,cultdown.but,cultup.but,item.but)
-  
   ######################
   #Sets Default GUI Variables and Frames
   ######################
   
-  tt <- tktoplevel(bg="#CDEED6")
-  datframe <<- tkframe(tt, borderwidth = 0,bg="#CDEED6")
-  datframe2 <<- tkframe(tt, borderwidth = 0,bg="#CDEED6")
-  datframe3 <<- tkframe(tt, borderwidth = 0,bg="#CDEED6")
-  datframe4 <<- tkframe(tt, borderwidth = 0,bg="#CDEED6")
-  applyframe <<- tkframe(tt, borderwidth = 0,bg="#CDEED6")
-  resultsframe <<- tkframe(tt, borderwidth = 0,bg="#CDEED6")
-  settingsframe <<- tkframe(tt, borderwidth = 0,bg="#CDEED6")
+  guidat <- list();
+  guidat$tt <- tktoplevel(bg="#CDEED6")
+  guidat$datframe <- tkframe(guidat$tt, borderwidth = 0,bg="#CDEED6")
+  guidat$datframe2 <- tkframe(guidat$tt, borderwidth = 0,bg="#CDEED6")
+  guidat$datframe3 <- tkframe(guidat$tt, borderwidth = 0,bg="#CDEED6")
+  guidat$datframe4 <- tkframe(guidat$tt, borderwidth = 0,bg="#CDEED6")
+  guidat$applyframe1 <- tkframe(guidat$tt, borderwidth = 0,bg="#CDEED6")
+  guidat$applyframe2 <- tkframe(guidat$tt, borderwidth = 0,bg="#CDEED6")
+  guidat$applyframe3 <- tkframe(guidat$tt, borderwidth = 0,bg="#CDEED6")
+  guidat$resultsframe1 <- tkframe(guidat$tt, borderwidth = 0,bg="#CDEED6")
+  guidat$resultsframe2 <- tkframe(guidat$tt, borderwidth = 0,bg="#CDEED6")
+  guidat$resultsframe3 <- tkframe(guidat$tt, borderwidth = 0,bg="#CDEED6")
+  guidat$settingsframe <- tkframe(guidat$tt, borderwidth = 0,bg="#CDEED6")
   
-  polywind <<- FALSE
-  samplesvar <<- tclVar("10000") 
-  chainsvar <<- tclVar("3")
-  burninvar <<- tclVar("2000")
-  thinvar <<- tclVar("1")
-  culturesvar <<- tclVar("1") 
-  paravar <<- tclVar("1")
-  itemdiffvar <<- tclVar("0") 
-  polyvar <<- tclVar("0")
+  guidat$polywind <- FALSE
+  guidat$mval <- FALSE
+  guidat$samplesvar <- tclVar("10000") 
+  guidat$chainsvar <- tclVar("3")
+  guidat$burninvar <- tclVar("2000")
+  guidat$thinvar <- tclVar("1")
+  guidat$culturesvar <- tclVar("1") 
+  guidat$paravar <- tclVar("1")
+  guidat$itemdiffvar <- tclVar("0") 
+  guidat$polyvar <- tclVar("0")
+  guidat$varnametry <- tclVar("cctfit") 
   
-  tkwm.title(tt,"CCT Model Application Software")
-  samples.entry <<- tkentry(settingsframe, textvariable=samplesvar,width="6")
-  chains.entry <<- tkentry(settingsframe, textvariable=chainsvar,width="2")
-  burnin.entry <<- tkentry(settingsframe, textvariable=burninvar,width="6")
-  thin.entry <<- tkentry(settingsframe, textvariable=thinvar,width="2")
-  cultures.entry <<- tkentry(applyframe, textvariable=culturesvar,width="2",disabledforeground="black",disabledbackground="white")
-  
-  cultdownfuncbutton <- function(){culturesvar <<- tclVar(as.character(max(1,as.numeric(tclvalue(culturesvar))-1))); tkconfigure(cultures.entry, textvariable=culturesvar) }
-  cultupfuncbutton <- function(){culturesvar <<- tclVar(as.character(min(floor(dim(datob$dat)[1]/4),as.numeric(tclvalue(culturesvar))+1))); tkconfigure(cultures.entry, textvariable=culturesvar) }
+  tkwm.title(guidat$tt,"CCT Model Application Software")
   
   ######################
   #The GUI Grid Setup
   ######################
-  loaddata.but <<- tkbutton(datframe, text="Load Data", command=loadfilefuncbutton)
-  screeplot.but <<- tkbutton(datframe, text="Scree Plot", command=screeplotfuncbutton)
-  applymodel.but <<- tkbutton(applyframe, text="Apply CCT Model", command=applymodelfuncbutton)
-  plotresults.but <<- tkbutton(resultsframe, text = "Plot Results", command = plotresultsfuncbutton)
-  doppc.but <<- tkbutton(resultsframe, text = "Run Checks", command = ppcfuncbutton)
-  exportresults.but <<- tkbutton(resultsframe, text = "Export Results", command = exportfuncbutton)
+  guidat$samples.entry <- tkentry(guidat$settingsframe, textvariable=guidat$samplesvar,width="6")
+  guidat$chains.entry <- tkentry(guidat$settingsframe, textvariable=guidat$chainsvar,width="2")
+  guidat$burnin.entry <- tkentry(guidat$settingsframe, textvariable=guidat$burninvar,width="6")
+  guidat$thin.entry <- tkentry(guidat$settingsframe, textvariable=guidat$thinvar,width="2")
   
-  para.but <<- tkcheckbutton(applyframe,variable=paravar,text="Parallel run",bg="#CDEED6")
-  item.but <<- tkcheckbutton(applyframe,variable=itemdiffvar,text="Item difficulty",bg="#CDEED6")
-  cultdown.but <<- tkbutton(applyframe, text="<", command=cultdownfuncbutton)
-  cultup.but <<- tkbutton(applyframe, text=">", command=cultupfuncbutton)
-  poly.but <<- tkcheckbutton(datframe4,variable=polyvar,text="Use polychoric correlations",bg="#CDEED6")
+         
+  guidat$loaddata.but <- tkbutton(guidat$datframe, text="Load Data", command=loadfilefuncbutton)
+  guidat$screeplot.but <- tkbutton(guidat$datframe, text="Scree Plot", command=screeplotfuncbutton)
+  guidat$poly.but <- tkcheckbutton(guidat$datframe4,variable=guidat$polyvar,text="Use polychoric correlations",bg="#CDEED6")
   
+  guidat$para.but <- tkcheckbutton(guidat$applyframe2,variable=guidat$paravar,text="Parallel run",bg="#CDEED6")
+  guidat$item.but <- tkcheckbutton(guidat$applyframe2,variable=guidat$itemdiffvar,text="Item difficulty",bg="#CDEED6")
+  guidat$cultdown.but <- tkbutton(guidat$applyframe2, text="<", command=cultdownfuncbutton)
+  guidat$cultup.but <- tkbutton(guidat$applyframe2, text=">", command=cultupfuncbutton)
+  guidat$applymodel.but <- tkbutton(guidat$applyframe2, text="Apply CCT Model", command=applymodelfuncbutton)
+  guidat$cultures.entry <- tkentry(guidat$applyframe2, textvariable=guidat$culturesvar,width="2",disabledforeground="black",disabledbackground="white")
+  guidat$varname.entry <- tkentry(guidat$applyframe3, textvariable=guidat$varnametry,width="10")
   
-  datafiletxt <<- tktext(tt,bg="white",width=20,height=1)
-  resptxt <<- tktext(tt,bg="white",width=4,height=1)
-  itemtxt <<- tktext(tt,bg="white",width=4,height=1) 
-  dattypetxt <<- tktext(tt,bg="white",width=11,height=1) 
-  modeltxt <<- tktext(tt,bg="white",width=4,height=1)
-  
-  tkgrid(datframe,columnspan=3,row=1,column=0)
-  tkgrid(datframe2,columnspan=4,row=2,column=0)
-  tkgrid(datframe3,columnspan=4,row=3,column=0)
-  tkgrid(datframe4,columnspan=5,row=4,column=0)
-  tkgrid(applyframe,columnspan=10,row=5,column=0)
-  tkgrid(resultsframe,columnspan=3,row=6)
-  tkgrid(settingsframe,columnspan=8,row=7)
-  
-  tkgrid(tklabel(datframe,text="",bg="#CDEED6"),columnspan=3, pady = 0) 
-  tkgrid(tklabel(datframe,text="Data Input",bg="#CDEED6"),columnspan=3, pady = 2) 
-  
-  tkgrid(loaddata.but,datafiletxt,screeplot.but,pady= 10, padx= 10)
-  tkgrid(tklabel(datframe2,text="Number of Respondents",bg="#CDEED6"),resptxt,tklabel(datframe2,text="Number of Items",bg="#CDEED6"),itemtxt, padx = 2, pady = 5) 
-  tkgrid(tklabel(datframe3,text="Data Type Detected",bg="#CDEED6"),dattypetxt,tklabel(datframe3,text="CCT Model",bg="#CDEED6"),modeltxt, padx = 2, pady = 5) 
-  tkgrid(tklabel(applyframe,text="Model Application",bg="#CDEED6"),columnspan=8, pady = 5) 
-  tkgrid(cultdown.but, cultures.entry, cultup.but, tklabel(applyframe,text="Cultures",bg="#CDEED6"),item.but,para.but,applymodel.but,pady= 10, padx= 2)
-  
-  tkconfigure(screeplot.but, state="disabled") 
-  tkgrid(tklabel(resultsframe,text="Application Results",bg="#CDEED6"),columnspan=3, pady = 5) 
-  tkgrid(doppc.but,plotresults.but,exportresults.but,pady= 10, padx= 10)
-  tkconfigure(applymodel.but, state="disabled")
-  tkconfigure(plotresults.but, state="disabled")
-  tkconfigure(doppc.but, state="disabled")
-  tkconfigure(exportresults.but, state="disabled")
-  tkgrid(tklabel(settingsframe,text="Sampler Settings (Optional)",bg="#CDEED6"),columnspan=8, pady = 5) 
-  tkgrid(tklabel(settingsframe,text="Samples",bg="#CDEED6"), samples.entry, tklabel(settingsframe,text="Chains",bg="#CDEED6"), chains.entry, tklabel(settingsframe,text="Burn-in",bg="#CDEED6"), burnin.entry, tklabel(settingsframe,text="Thinning",bg="#CDEED6"), thin.entry, pady= 10, padx= 2)
-  
-  tkgrid(tklabel(settingsframe,text="",bg="#CDEED6"),columnspan=8, pady = 0) 
-  
-  tkconfigure(cultures.entry, bg="white", state="disabled", background="black")
-  tkinsert(datafiletxt,"end","(load data file)")
-  tkconfigure(datafiletxt, state="disabled")
-  tkconfigure(resptxt, state="disabled")
-  tkconfigure(itemtxt, state="disabled")
-  tkconfigure(dattypetxt, state="disabled")
-  tkconfigure(modeltxt, state="disabled")
-  
-  tkconfigure(para.but, state="disabled")
-  tkconfigure(item.but, state="disabled")
-  tkconfigure(cultdown.but, state="disabled")
-  tkconfigure(cultup.but, state="disabled")
+  tkbind(guidat$varname.entry, "<Key>", valid_inputkey) 
+  tkbind(guidat$varname.entry, "<FocusOut>", valid_inputfo) 
+  tkbind(guidat$varname.entry, "<Return>", valid_inputfo) 
+
+  guidat$plotresults.but <- tkbutton(guidat$resultsframe1, text = "Plot Results", command = plotresultsfuncbutton)
+  guidat$doppc.but <- tkbutton(guidat$resultsframe1, text = "Run Checks", command = ppcfuncbutton)
+  guidat$exportresults.but <- tkbutton(guidat$resultsframe1, text = "Export Results", command = exportfuncbutton)
+  guidat$memb.but <- tkbutton(guidat$resultsframe2, text = "Cluster Membs", command = membfuncbutton)
+  guidat$mvest.but <- tkbutton(guidat$resultsframe2, text = "NA Value Est", command = mvestfuncbutton)
+  guidat$traceplotdiscrete.but <- tkbutton(guidat$resultsframe2, text = "Traceplot Discrete", command = traceplotdiscretefuncbutton)
+  guidat$traceplotall.but <- tkbutton(guidat$resultsframe2, text = "Traceplot All", command = traceplotallfuncbutton)
+  guidat$printfit.but <- tkbutton(guidat$resultsframe3, text = "Print Fit", command = printfitfuncbutton)
+  guidat$summary.but <- tkbutton(guidat$resultsframe3, text = "Fit Summary", command = summaryfuncbutton)
+  guidat$sendconsole.but <- tkbutton(guidat$resultsframe3, text = "Send Console", command = sendconsolefuncbutton)
   
   
-  tkgrid.columnconfigure(tt,0,weight=1) 
-  tkgrid.rowconfigure(tt,0,weight=1) 
-  tkwm.resizable(tt,0,0)
+  guidat$datafiletxt <- tktext(guidat$tt,bg="white",width=20,height=1)
+  guidat$resptxt <- tktext(guidat$tt,bg="white",width=4,height=1)
+  guidat$itemtxt <- tktext(guidat$tt,bg="white",width=4,height=1) 
+  guidat$dattypetxt <- tktext(guidat$tt,bg="white",width=11,height=1) 
+  guidat$modeltxt <- tktext(guidat$tt,bg="white",width=4,height=1)
+ 
+  tkgrid(guidat$datframe,columnspan=3,row=1,column=0)
+  tkgrid(guidat$datframe2,columnspan=4,row=2,column=0)
+  tkgrid(guidat$datframe3,columnspan=4,row=3,column=0)
+  tkgrid(guidat$datframe4,columnspan=5,row=4,column=0)
+  tkgrid(guidat$applyframe1,columnspan=10,row=5,column=0)
+  tkgrid(guidat$applyframe2,columnspan=10,row=6,column=0)
+  tkgrid(guidat$applyframe3,columnspan=10,row=7,column=0)
+  tkgrid(guidat$resultsframe1,columnspan=3,row=8)
+  tkgrid(guidat$resultsframe2,columnspan=4,row=9)
+  tkgrid(guidat$resultsframe3,columnspan=3,row=10) 
+  tkgrid(guidat$settingsframe,columnspan=8,row=11)
+  
+  tkgrid(tklabel(guidat$datframe,text="",bg="#CDEED6"),columnspan=3, pady = 0) 
+  tkgrid(tklabel(guidat$datframe,text="Data Input",bg="#CDEED6"),columnspan=3, pady = 2) 
+  
+  tkgrid(guidat$loaddata.but,guidat$datafiletxt,guidat$screeplot.but,pady= 10, padx= 10)
+  tkgrid(tklabel(guidat$datframe2,text="Number of Respondents",bg="#CDEED6"),guidat$resptxt,tklabel(guidat$datframe2,text="Number of Items",bg="#CDEED6"),guidat$itemtxt, padx = 2, pady = 5) 
+  tkgrid(tklabel(guidat$datframe3,text="Data Type Detected",bg="#CDEED6"),guidat$dattypetxt,tklabel(guidat$datframe3,text="CCT Model",bg="#CDEED6"),guidat$modeltxt, padx = 2, pady = 5) 
+  tkgrid(tklabel(guidat$applyframe1,text="Model Application",bg="#CDEED6"),columnspan=3, pady = 5) 
+  tkgrid(guidat$cultdown.but, guidat$cultures.entry, guidat$cultup.but, tklabel(guidat$applyframe2,text="Cultures",bg="#CDEED6"),guidat$item.but,guidat$para.but,guidat$applymodel.but,pady= 10, padx= 2)
+  tkgrid(guidat$varname.entry,tklabel(guidat$applyframe3,text="Name of Fit",bg="#CDEED6"),padx= 2)
   
   
+  tkconfigure(guidat$screeplot.but, state="disabled") 
+  tkgrid(tklabel(guidat$resultsframe1,text="Application Results",bg="#CDEED6"),columnspan=3, pady = 5) 
+  tkgrid(guidat$doppc.but,guidat$plotresults.but,guidat$exportresults.but,pady= 5, padx= 10)
+  tkgrid(guidat$memb.but,guidat$mvest.but,guidat$traceplotdiscrete.but,guidat$traceplotall.but,pady= 5, padx= 5)
+  tkgrid(guidat$printfit.but,guidat$summary.but,guidat$sendconsole.but,pady= 5, padx= 10)
+  
+  
+  tkconfigure(guidat$applymodel.but, state="disabled")
+  tkconfigure(guidat$plotresults.but, state="disabled")
+  tkconfigure(guidat$doppc.but, state="disabled")
+  tkconfigure(guidat$exportresults.but, state="disabled")
+  tkconfigure(guidat$printfit.but, state="disabled")
+  tkconfigure(guidat$summary.but, state="disabled")
+  tkconfigure(guidat$sendconsole.but, state="disabled")
+  tkconfigure(guidat$memb.but, state="disabled")
+  tkconfigure(guidat$mvest.but, state="disabled")
+  tkconfigure(guidat$traceplotdiscrete.but, state="disabled")
+  tkconfigure(guidat$traceplotall.but, state="disabled")
+  
+  tkgrid(tklabel(guidat$settingsframe,text="Sampler Settings (Optional)",bg="#CDEED6"),columnspan=8, pady = 5) 
+  tkgrid(tklabel(guidat$settingsframe,text="Samples",bg="#CDEED6"), guidat$samples.entry, tklabel(guidat$settingsframe,text="Chains",bg="#CDEED6"), guidat$chains.entry, tklabel(guidat$settingsframe,text="Burn-in",bg="#CDEED6"), guidat$burnin.entry, tklabel(guidat$settingsframe,text="Thinning",bg="#CDEED6"), guidat$thin.entry, pady= 10, padx= 2)
+  
+  tkgrid(tklabel(guidat$settingsframe,text="",bg="#CDEED6"),columnspan=8, pady = 0) 
+  
+  tkconfigure(guidat$cultures.entry, bg="white", state="disabled", background="black")
+  tkinsert(guidat$datafiletxt,"end","(load data file)")
+  tkconfigure(guidat$datafiletxt, state="disabled")
+  
+  
+  tkconfigure(guidat$resptxt, state="disabled")
+  tkconfigure(guidat$itemtxt, state="disabled")
+  tkconfigure(guidat$dattypetxt, state="disabled")
+  tkconfigure(guidat$modeltxt, state="disabled")
+  tkconfigure(guidat$varname.entry, state="disabled")
+  
+  tkconfigure(guidat$para.but, state="disabled")
+  tkconfigure(guidat$item.but, state="disabled")
+  tkconfigure(guidat$cultdown.but, state="disabled")
+  tkconfigure(guidat$cultup.but, state="disabled")
+  
+  tkgrid.columnconfigure(guidat$tt,0,weight=1) 
+  tkgrid.rowconfigure(guidat$tt,0,weight=1) 
+  tkwm.resizable(guidat$tt,0,0)
+  
+  guidat$guidatnames <- names(guidat)
+  list2env(guidat,pkg_globals)
+  assign("guidat", guidat, pkg_globals)
   message("\n ...Starting CCT Inference Software\n")
 }
 
@@ -143,7 +188,7 @@ cctgui <- function(){
 #- 'exportfilename' set a name different from "" if one wants to automatically export the results 
 #    to the working directory
 ######################
-cctapply <- function(data,clusters=1,itemdiff=FALSE,samples=10000,chains=3,burnin=2000,thinning=1,runchecks=TRUE,exportfilename="",polych=FALSE,parallel=FALSE,seed=NULL){
+cctapply <- function(data,clusters=1,itemdiff=FALSE,samples=10000,chains=3,burnin=2000,thinning=1,runchecks=TRUE,exportfilename="",polych=FALSE,parallel=FALSE,seed=NULL,plotr=TRUE){
   if(!is.null(seed)){
     set.seed(1); rm(list=".Random.seed", envir=globalenv())
     set.seed(seed)
@@ -151,7 +196,7 @@ cctapply <- function(data,clusters=1,itemdiff=FALSE,samples=10000,chains=3,burni
   datob <- loadfilefunc(data)
   datob <- screeplotfunc(datob,noplot=TRUE)
   cctfit <- applymodelfunc(datob,clusters=clusters,itemdiff=itemdiff,jags.iter=samples,jags.chains=chains,jags.burnin=burnin,jags.thin=thinning,parallel=parallel)
-  plotresultsfunc(cctfit)
+  if(plotr==TRUE){plotresultsfunc(cctfit)}
   if(runchecks==TRUE){
     cctfit <- ppcfunc(cctfit,polych=polych)
   }
@@ -165,7 +210,7 @@ cctapply <- function(data,clusters=1,itemdiff=FALSE,samples=10000,chains=3,burni
 #Manual function to do the scree plot, equivalent to the 'Scree Plot Button'
 #- Takes in a data as a respondent by item array or matrix
 ######################
-cctscree <- function(data,polych=FALSE){
+cctscree <- function(data,polych=FALSE){  
   datob <- loadfilefunc(data)
   datob <- screeplotfunc(datob,polych=polych)
 }
@@ -228,11 +273,9 @@ loadfilefuncbutton <- function(){
 }
 
 loadfilefunc <- function(data=0,gui=FALSE,polych=FALSE){
-  polywind <- NULL
-  rm(polywind)
+  if(gui==TRUE){guidat <- get("guidat", pkg_globals)}
   
-  datob <- list()
-  datob$polych <- polych; datob$datfactorsp <- 1; datob$datfactorsc
+  datob <- list(); datob$polych <- polych; datob$datfactorsp <- 1; datob$datfactorsc
   
   if(gui==TRUE){
     datob$fileName <- file.path(tclvalue(tkgetOpenFile(filetypes = "{{csv Files} {.csv .txt}}")))
@@ -264,39 +307,39 @@ loadfilefunc <- function(data=0,gui=FALSE,polych=FALSE){
       
       setwd(file.path(dirname(datob$fileName)))
       
-      tkconfigure(screeplot.but, state="normal") 
-      tkconfigure(applymodel.but, state="normal") 
+      tkconfigure(guidat$screeplot.but, state="normal") 
+      tkconfigure(guidat$applymodel.but, state="normal") 
     }
-    tkconfigure(datafiletxt, state="normal") 
-    tkconfigure(resptxt, state="normal")
-    tkconfigure(itemtxt, state="normal") 
-    tkconfigure(dattypetxt, state="normal") 
-    tkconfigure(modeltxt, state="normal") 
-    tkconfigure(para.but, state="normal")
-    tkconfigure(item.but, state="normal")
-    tkconfigure(cultdown.but, state="normal")
-    tkconfigure(cultup.but, state="normal")
+    tkconfigure(guidat$datafiletxt, state="normal") 
+    tkconfigure(guidat$resptxt, state="normal")
+    tkconfigure(guidat$itemtxt, state="normal") 
+    tkconfigure(guidat$dattypetxt, state="normal") 
+    tkconfigure(guidat$modeltxt, state="normal") 
+    tkconfigure(guidat$para.but, state="normal")
+    tkconfigure(guidat$item.but, state="normal")
+    tkconfigure(guidat$cultdown.but, state="normal")
+    tkconfigure(guidat$cultup.but, state="normal")
     
-    tkdelete(datafiletxt,"1.0","800.0")
-    tkdelete(resptxt,"1.0","800.0")
-    tkdelete(itemtxt,"1.0","800.0")
-    tkdelete(dattypetxt,"1.0","800.0")
-    tkdelete(modeltxt,"1.0","800.0")
+    tkdelete(guidat$datafiletxt,"1.0","800.0")
+    tkdelete(guidat$resptxt,"1.0","800.0")
+    tkdelete(guidat$itemtxt,"1.0","800.0")
+    tkdelete(guidat$dattypetxt,"1.0","800.0")
+    tkdelete(guidat$modeltxt,"1.0","800.0")
     
-    tkinsert(datafiletxt,"end",basename(datob$fileName))
+    tkinsert(guidat$datafiletxt,"end",basename(datob$fileName)); datob$nmiss <- 0
     is.wholenumber <- function(x, tol = .Machine$double.eps^0.5)  abs(x - round(x)) < tol
     
     if(!all(is.wholenumber(datob$dat))){ 
       invlogit <- function(x){x <- 1 / (1 + exp(-x)); return(x)}
       logit <- function(x){x <- log(x/(1-x)); return(x)}
       
-      tkinsert(modeltxt,"end","CRM")
+      tkinsert(guidat$modeltxt,"end","CRM")
       datob$whmodel <- "CRM"
       if(min(datob$dat) >= 0 && max(datob$dat) <= 1){
+        datob$datatype <- "Continuous"
         message("\n ...Continuous data detected")
-        tkinsert(dattypetxt,"end","Continuous in [0,1]")
+        tkinsert(guidat$dattypetxt,"end","Continuous in [0,1]")
         datob$dat[datob$dat<=0] <- .001; datob$dat[datob$dat>=1] <- .999
-        #datob$dat <- logit(datob$dat) 
         datob$dat <- logit(datob$dat) 
         
         if(datob$mval==TRUE){
@@ -304,11 +347,11 @@ loadfilefunc <- function(data=0,gui=FALSE,polych=FALSE){
           datob$thenalist <- which(is.na(datob$dat)) 
           datob$dat[datob$thena] <- colMeans(datob$dat[,datob$thena[,2]],na.rm=TRUE)
         }
-      }else{tkinsert(dattypetxt,"end","Continuous");
-            #datob$dat <- invlogit(datob$dat) 
+      }else{
+        datob$datatype <- "Continuous"
+        tkinsert(guidat$dattypetxt,"end","Continuous")
             datob$dat <- invlogit(datob$dat)
             datob$dat[datob$dat<=0] <- .001; datob$dat[datob$dat>=1] <- .999
-            #datob$dat <- logit(datob$dat) 
             datob$dat <- logit(datob$dat) 
             
             if(datob$mval==TRUE){
@@ -316,11 +359,14 @@ loadfilefunc <- function(data=0,gui=FALSE,polych=FALSE){
               datob$thenalist <- which(is.na(datob$dat)) 
               datob$dat[datob$thena] <- colMeans(datob$dat[,datob$thena[,2]],na.rm=TRUE)
             }
-            message("\n ...Continuous data detected")}     
+            datob$datatype <- "Continuous"
+            message("\n ...Continuous data detected")
+      }     
     }else{if(min(datob$dat) >= 0 && max(datob$dat) <= 1){  
-      tkinsert(modeltxt,"end","GCM") 
+      tkinsert(guidat$modeltxt,"end","GCM") 
       datob$whmodel <- "GCM"
-      tkinsert(dattypetxt,"end","Binary")
+      datob$datatype <- "Binary"
+      tkinsert(guidat$dattypetxt,"end","Binary")
       message("\n ...Binary (dichotomous) data detected")
       if(datob$mval==TRUE){
         datob$dat[datob$thena] <- NA
@@ -331,13 +377,14 @@ loadfilefunc <- function(data=0,gui=FALSE,polych=FALSE){
       }
       
     }else{ 
-      tkinsert(modeltxt,"end","LTRM") 
+      tkinsert(guidat$modeltxt,"end","LTRM") 
       datob$whmodel <- "LTRM"
-      tkinsert(dattypetxt,"end","Ordinal")
+      datob$datatype <- "Ordinal"
+      tkinsert(guidat$dattypetxt,"end","Ordinal")
       message("\n ...Ordinal (categorical) data detected")
-      if(polywind==FALSE){
-        tkgrid(poly.but,pady= 10, padx= 2)
-        polywind <<- TRUE
+      if(guidat$polywind==FALSE){
+        tkgrid(guidat$poly.but,pady= 10, padx= 2)
+        guidat$polywind <- TRUE
       }
       
       
@@ -352,32 +399,53 @@ loadfilefunc <- function(data=0,gui=FALSE,polych=FALSE){
     
     }
     
-    tkinsert(resptxt,"end",dim(datob$dat)[1])
-    tkinsert(itemtxt,"end",dim(datob$dat)[2])
+    tkinsert(guidat$resptxt,"end",dim(datob$dat)[1])
+    tkinsert(guidat$itemtxt,"end",dim(datob$dat)[2])
     
-    tkconfigure(datafiletxt, state="disabled") 
-    tkconfigure(resptxt, state="disabled") 
-    tkconfigure(itemtxt, state="disabled") 
-    tkconfigure(dattypetxt, state="disabled") 
-    tkconfigure(modeltxt, state="disabled") 
+    tkconfigure(guidat$datafiletxt, state="disabled") 
+    tkconfigure(guidat$resptxt, state="disabled") 
+    tkconfigure(guidat$itemtxt, state="disabled") 
+    tkconfigure(guidat$dattypetxt, state="disabled") 
+    tkconfigure(guidat$modeltxt, state="disabled") 
     
     datob$datind <- cbind(expand.grid(t(row(datob$dat))),expand.grid(t(col(datob$dat))),expand.grid(t(datob$dat)))
-    if(datob$mval==TRUE){message("\n ...Data has ",dim(datob$thena)[1]," missing values out of ",length(datob$dat))
+    if(datob$mval==TRUE){
+                      datob$nmiss <- dim(datob$thena)[1]
                       datob$datind <- datob$datind[-datob$thenalist,]
                       datob$datna <- datob$dat 
                       datob$datna[datob$thena] <- NA
+                      message("\n ...Data has ",datob$nmiss," missing values out of ",length(datob$dat))
     }
     
     if(datob$whmodel=="LTRM"){   
-      tkconfigure(poly.but, state="normal") 
+      tkconfigure(guidat$poly.but, state="normal") 
     }else{
-      if(polywind==TRUE){
-        tkconfigure(poly.but, state="disabled") 
+      if(guidat$polywind==TRUE){
+        tkconfigure(guidat$poly.but, state="disabled") 
       } }  
     
-    message("\n ...Data loaded")		 
+    tkconfigure(guidat$varname.entry, state="normal")
     
-    datob <<- datob
+    tkconfigure(guidat$plotresults.but, state="disabled") 
+    tkconfigure(guidat$doppc.but, state="disabled") 
+    tkconfigure(guidat$exportresults.but, state="disabled") 
+    tkconfigure(guidat$printfit.but, state="disabled")
+    tkconfigure(guidat$summary.but, state="disabled")
+    tkconfigure(guidat$sendconsole.but, state="disabled")
+    tkconfigure(guidat$memb.but, state="disabled")
+    tkconfigure(guidat$mvest.but, state="disabled")
+    tkconfigure(guidat$traceplotdiscrete.but, state="disabled")
+    tkconfigure(guidat$traceplotall.but, state="disabled")
+    
+    datob$nobs <- dim(datob$datind)[1]
+    
+    datob$datobnames <- names(datob)
+    #list2env(datob,pkg_globals)
+    assign("datob", datob, pkg_globals)
+    
+    guidat$n <- dim(datob$dat)[1]; guidat$m <- dim(datob$dat)[2]; guidat$mval <- datob$mval
+    assign("guidat", guidat, pkg_globals) 
+    message("\n ...Data loaded")  
   }
   if(gui==FALSE){
     
@@ -395,6 +463,7 @@ loadfilefunc <- function(data=0,gui=FALSE,polych=FALSE){
                                     }
     }
     
+    datob$nmiss <- 0
     if(sum(is.na(datob$dat))>0){
       datob$thena <- which(is.na(datob$dat),arr.ind=TRUE)
       datob$thenalist <- which(is.na(datob$dat))
@@ -412,24 +481,25 @@ loadfilefunc <- function(data=0,gui=FALSE,polych=FALSE){
       
       datob$whmodel <- "CRM"
       if(min(datob$dat) >= 0 && max(datob$dat) <= 1){
+        datob$datatype <- "Continuous"
         message("\n ...Continuous data detected")
         datob$dat[datob$dat<=0] <- .001; datob$dat[datob$dat>=1] <- .999
         #datob$dat <- logit(datob$dat) 
         datob$dat <- logit(datob$dat) 
         
         if(datob$mval==TRUE){
+          datob$nmiss <- dim(datob$thena)[1]
           datob$dat[datob$thena] <- NA
           datob$thenalist <- which(is.na(datob$dat)) 
           datob$dat[datob$thena] <- colMeans(datob$dat[,datob$thena[,2]],na.rm=TRUE)
         }
       }else{
-        #datob$dat <- invlogit(datob$dat) 
         datob$dat <- invlogit(datob$dat)
         datob$dat[datob$dat<=0] <- .001; datob$dat[datob$dat>=1] <- .999
-        #datob$dat <- logit(datob$dat) 
         datob$dat <- logit(datob$dat) 
         
         if(datob$mval==TRUE){
+          datob$nmiss <- dim(datob$thena)[1]
           datob$dat[datob$thena] <- NA
           datob$thenalist <- which(is.na(datob$dat)) 
           datob$dat[datob$thena] <- colMeans(datob$dat[,datob$thena[,2]],na.rm=TRUE)
@@ -437,8 +507,10 @@ loadfilefunc <- function(data=0,gui=FALSE,polych=FALSE){
         message("\n ...Continuous data detected")}     
     }else{if(min(datob$dat) >= 0 && max(datob$dat) <= 1){  
       datob$whmodel <- "GCM"
+      datob$datatype <- "Binary"
       message("\n ...Binary (dichotomous) data detected")
       if(datob$mval==TRUE){
+        datob$nmiss <- dim(datob$thena)[1]
         datob$dat[datob$thena] <- NA
         datob$thenalist <- which(is.na(datob$dat)) 
         for(i in unique(datob$thena[,2])){
@@ -447,9 +519,11 @@ loadfilefunc <- function(data=0,gui=FALSE,polych=FALSE){
       }
     }else{ 
       datob$whmodel <- "LTRM"
+      datob$datatype <- "Ordinal"
       message("\n ...Ordinal (categorical) data detected")
       
       if(datob$mval==TRUE){
+        datob$nmiss <- dim(datob$thena)[1]
         datob$dat[datob$thena] <- NA
         datob$thenalist <- which(is.na(datob$dat)) 
         for(i in unique(datob$thena[,2])){
@@ -468,7 +542,7 @@ loadfilefunc <- function(data=0,gui=FALSE,polych=FALSE){
                       datob$datna <- datob$dat 
                       datob$datna[datob$thena] <- NA
     }
-    
+    datob$nobs <- dim(datob$datind)[1]
     return(datob)
   }
   
@@ -485,12 +559,12 @@ loadfilefunc <- function(data=0,gui=FALSE,polych=FALSE){
 #- When exporting the results, this function is run and produces .eps and .jpeg's of the plot
 ######################
 screeplotfuncbutton <- function() {
-  
-  screeplotfunc(datob=datob,saveplots=0,savedir="",polych=as.logical(as.numeric(tclvalue(polyvar))))
+  datob <- get("datob", pkg_globals)
+  guidat <- get("guidat", pkg_globals)
+  screeplotfunc(datob=datob,saveplots=0,savedir="",polych=as.logical(as.numeric(tclvalue(guidat$polyvar))))
 }
 screeplotfunc <- function(datob,saveplots=0,savedir="",gui=FALSE,polych=FALSE,noplot=FALSE) {
   options(warn=-3)
-  
   if(datob$whmodel!="LTRM"){
     if(saveplots==0 && noplot==FALSE){
       tmp <- ""
@@ -547,12 +621,68 @@ screeplotfunc <- function(datob,saveplots=0,savedir="",gui=FALSE,polych=FALSE,no
       plot(datob$datfactors,las=1,type="b",bg="black",pch=21,xlab="Factor",ylab="Magnitude",main="Scree Plot of Data")
     }
     
-    if(gui==TRUE){datob <<- datob}
+    if(gui==TRUE){
+      datob$datobnames <- names(datob)
+      #list2env(datob,pkg_globals)
+      assign("datob", datob, pkg_globals)
+    }
     if(saveplots==1 || saveplots ==2){dev.off()}
   }
   
   if(gui==FALSE){return(datob)}
   options(warn=0)
+}
+
+######################
+#Functions for the Increasing/Decreasing Cultures Buttons
+######################
+
+#For testing
+#itemdifffuncbutton <- function(){print(tclvalue(get("guidat", pkg_globals)$itemdiffvar)) }
+
+cultdownfuncbutton <- function(){guidat <- get("guidat", pkg_globals); guidat$culturesvar <- tclVar(as.character(max(1,as.numeric(tclvalue(guidat$culturesvar))-1))); tkconfigure(guidat$cultures.entry, textvariable=guidat$culturesvar); assign("guidat", guidat, pkg_globals)}
+cultupfuncbutton <- function(){guidat <- get("guidat", pkg_globals); guidat$culturesvar <- tclVar(as.character(min(floor(guidat$n/4),as.numeric(tclvalue(guidat$culturesvar))+1))); tkconfigure(guidat$cultures.entry, textvariable=guidat$culturesvar); assign("guidat", guidat, pkg_globals)}
+
+#cultdownfuncbutton <- function(){guidat <- get("guidat", pkg_globals); guidat$culturesvar <- tclVar(as.character(max(1,as.numeric(tclvalue(guidat$culturesvar))-1))); tkconfigure(guidat$cultures.entry, textvariable=guidat$culturesvar); assign("guidat", guidat, pkg_globals)}
+#cultupfuncbutton <- function(){guidat <- get("guidat", pkg_globals); guidat$culturesvar <- tclVar(as.character(min(floor(dim(datob$dat)[1]/4),as.numeric(tclvalue(guidat$culturesvar))+1))); tkconfigure(guidat$cultures.entry, textvariable=guidat$culturesvar); assign("guidat", guidat, pkg_globals)}
+
+######################
+#Functions for Inputting Object Name Entry Field
+######################
+
+valid_inputkey <- function() {
+  guidat <- get("guidat", pkg_globals);
+  val <- gsub(" ","",tclvalue(guidat$varnametry))
+  nchars <- nchar(make.names(val))
+  if(val != ""){
+    if(nchars > 10){
+      guidat$varnametry <- tclVar(as.character(substr(make.names(val),start=1,stop=10)))
+      tkconfigure(guidat$varname.entry, textvariable=guidat$varnametry)
+    }else{
+      guidat$varnametry <- tclVar(as.character(make.names(val)))
+      tkconfigure(guidat$varname.entry, textvariable=guidat$varnametry)
+    }}
+  assign("guidat", guidat, pkg_globals)
+}
+
+valid_inputfo <- function() {
+  guidat <- get("guidat", pkg_globals);
+  val <- gsub(" ","",tclvalue(guidat$varnametry))
+  nchars <- nchar(make.names(val))
+  if(val == ""){
+    guidat$varnametry <- tclVar("cctfit")
+    tkconfigure(guidat$varname.entry, textvariable=guidat$varnametry)
+    assign("guidat", guidat, pkg_globals)
+    return() 
+  }
+  if(nchars>10){
+    guidat$varnametry <- tclVar(as.character(substr(make.names(val),start=1,stop=10)))
+    tkconfigure(guidat$varname.entry, textvariable=guidat$varnametry)
+  }else{
+    guidat$varnametry <- tclVar(as.character(make.names(val)))
+    tkconfigure(guidat$varname.entry, textvariable=guidat$varnametry)
+  }
+  assign("guidat", guidat, pkg_globals)
 }
 
 ######################
@@ -571,15 +701,32 @@ screeplotfunc <- function(datob,saveplots=0,savedir="",gui=FALSE,polych=FALSE,no
 #- Enables GUI buttons: 'Run Checks', 'Plot Results', 'Export Results'
 ######################
 applymodelfuncbutton <- function() {
-  applymodelfunc(datob=datob,clusters=as.numeric(tclvalue(culturesvar)),itemdiff=as.logical(as.numeric(tclvalue(itemdiffvar))),
-                 jags.iter=as.numeric(tclvalue(samplesvar)),jags.chains= as.numeric(tclvalue(chainsvar)),jags.burnin=as.numeric(tclvalue(burninvar)),
-                 jags.thin=as.numeric(tclvalue(thinvar)),parallel= as.logical(as.numeric(tclvalue(paravar))),gui=TRUE)
+  guidat <- get("guidat", pkg_globals)
+  datob <- get("datob", pkg_globals)
+  
+  guidat$varname <- tclvalue(guidat$varnametry)
+  tkconfigure(guidat$varname.entry, state="disabled")
+  assign("guidat", guidat, pkg_globals)
+  
+  assign(guidat$varname,
+  applymodelfunc(datob=datob,clusters=as.numeric(tclvalue(guidat$culturesvar)),itemdiff=as.logical(as.numeric(tclvalue(guidat$itemdiffvar))),
+                  jags.iter=as.numeric(tclvalue(guidat$samplesvar)),jags.chains= as.numeric(tclvalue(guidat$chainsvar)),jags.burnin=as.numeric(tclvalue(guidat$burninvar)),
+                  jags.thin=as.numeric(tclvalue(guidat$thinvar)),parallel= as.logical(as.numeric(tclvalue(guidat$paravar))),gui=TRUE),
+  pkg_globals
+  )
+
+  #User-friendly (for novices) but not CRAN compliant because it assigns the fit object in the Global environment
+  #assign(guidat$varname,
+  #applymodelfunc(datob=datob,clusters=as.numeric(tclvalue(guidat$culturesvar)),itemdiff=as.logical(as.numeric(tclvalue(guidat$itemdiffvar))),
+  #                jags.iter=as.numeric(tclvalue(guidat$samplesvar)),jags.chains= as.numeric(tclvalue(guidat$chainsvar)),jags.burnin=as.numeric(tclvalue(guidat$burninvar)),
+  #                jags.thin=as.numeric(tclvalue(guidat$thinvar)),parallel= as.logical(as.numeric(tclvalue(guidat$paravar))),gui=TRUE),
+  #inherits=TRUE
+  #)
 }
 
 applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.chains=3,jags.burnin=2000,jags.thin=1,parallel=FALSE,gui=FALSE) {
-  alltraceplot <- dtraceplot <- NULL
-  rm(alltraceplot, dtraceplot)
   
+  if(gui==TRUE){guidat <- get("guidat", pkg_globals)}
   ######################
   #Model Codes
   #- Used by the 'Apply CCT Model' button/function
@@ -986,10 +1133,10 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
     cctfit$dataind <- datob$datind; cctfit$data <- datob$dat; cctfit$n <- nresp; cctfit$m <- nitem; cctfit$V <- V
     cctfit$mval <- datob$mval; cctfit$itemdiff <- itemdiff; cctfit$checksrun <- FALSE; cctfit$whmodel <- datob$whmodel; cctfit$datob <- datob
     if(cctfit$mval==TRUE){cctfit$datamiss <- datob$datna}
-    if(cctfit$whmodel=="LTRM"){cctfit$C <- C}
+    if(cctfit$whmodel=="LTRM"){cctfit$C <- C;cctfit$polycor <- FALSE}
   }else{
     ### Prepare / Evaluate parameters for Parallel JAGS run
-    jags.burnin <- jags.burnin; jags.iter <- jags.iter; jags.chains <- jags.chains; jags.thin <- jags.thin; alltraceplot <- dtraceplot <- NULL; rm(alltraceplot, dtraceplot)
+    jags.burnin <- jags.burnin; jags.iter <- jags.iter; jags.chains <- jags.chains; jags.thin <- jags.thin; 
     tmpfn=tempfile()
     tmpcn=file(tmpfn,"w"); cat(model.file,file=tmpcn); close(tmpcn);
     
@@ -1519,26 +1666,30 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
   #- Reports the number of Rhats above 1.05 and 1.10 
   #- Outputs the DIC that is calculated after the label-correcting algorithm (if applicable)
   ######################
-  message("\n ...Inference complete, data is saved as 'cctfit'")
-  if(clusters > 1){
-    message("\n    'cctfit$respmem' provides the respondent clustering")
-  }
+#   message("\n ...Inference complete, data is saved as '",guidat$varname,"'")
+#   if(clusters > 1){
+#     message("\n    'cctfit$respmem' provides the respondent clustering")
+#   }
   
   message("\n ...Performing final calculations")
   if(cctfit$BUGSoutput$n.chains > 1){
     cctfit$BUGSoutput$summary[,8] <- Rhat(cctfit$BUGSoutput$sims.array)
     cctfit$BUGSoutput$summary[,8][is.nan(cctfit$BUGSoutput$summary[,8])] <- 1.000000
     if(cctfit$whmodel== "GCM"){
-      message(paste("\nFor Continuous Parameters"))
-      message(paste("Number of Rhats above 1.10 : ",sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]>1.10),"/",length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]),"\nNumber of Rhats above 1.05 : ",sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]>1.050),"/",length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]),sep=""))
-    }else{
-      message(paste("Number of Rhats above 1.10 : ",sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]>1.10),"/",length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]),"\nNumber of Rhats above 1.05 : ",sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]>1.050),"/",length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]),sep=""))
+       cctfit$Rhat$ncp <- length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8])
+       cctfit$Rhat$above110 <- sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]>1.10)
+       cctfit$Rhat$above105 <- sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]>1.050)
+      }else{
+        cctfit$Rhat$ncp <- length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8])
+        cctfit$Rhat$above110 <- sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]>1.10)
+        cctfit$Rhat$above105 <- sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]>1.050)
     }
+    message(paste("\nFor Continuous Parameters"))
+    message(paste("Number of Rhats above 1.10 : ",cctfit$Rhat$above110,"/",cctfit$Rhat$ncp,"\nNumber of Rhats above 1.05 : ",cctfit$Rhat$above105,"/",cctfit$Rhat$ncp))
   }
   
   if(cctfit$V>1 && cctfit$BUGSoutput$n.chains==1){
     
-    #Mode <<- function(x) { ux <- unique(x); ux[which.max(tabulate(match(x, ux)))] }
     tmp <- unique(apply(cctfit$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]],c(2),Mode))
     if(length(tmp)==1){
       message(paste("\n ...This chain has ",length(tmp)," culture rather than the ",cctfit$V," cultures requested", sep=""))
@@ -1554,8 +1705,6 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
     message("\n ...More than 1 culture applied with more than 1 chain")
     
     einds <- cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]
-    
-    #Mode <<- function(x) { ux <- unique(x); ux[which.max(tabulate(match(x, ux)))] }
     
     tmp <- apply(apply(cctfit$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]],c(2,3),Mode),1,unique)
     
@@ -1605,7 +1754,6 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
       
       cctfit <- labelswitchalggcm(cctfit)
       
-      #Mode <<- function(x) { ux <- unique(x); ux[which.max(tabulate(match(x, ux)))] }
       cctfit$respmem <- apply(cctfit$BUGSoutput$sims.list$Om[,],2,Mode)
       tmeans <- cctfit$BUGSoutput$mean$Z
       tmeans[tmeans<.5] <- tmeans[tmeans<.5]+1
@@ -1617,7 +1765,6 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
       
       cctfit <- labelswitchalgltrm(cctfit)
       
-      #Mode <<- function(x) {  ux <- unique(x); ux[which.max(tabulate(match(x, ux)))]}
       cctfit$respmem <- apply(cctfit$BUGSoutput$sims.list$Om[,],2,Mode)
       tmeans <- cctfit$BUGSoutput$mean$T
       ind <- rank(-apply(tmeans,2,sd))
@@ -1628,7 +1775,6 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
       
       cctfit <- labelswitchalgcrm(cctfit)
       
-      #Mode <<- function(x) {ux <- unique(x);ux[which.max(tabulate(match(x, ux)))]}
       cctfit$respmem <- apply(cctfit$BUGSoutput$sims.list$Om[,],2,Mode)
       tmeans <- cctfit$BUGSoutput$mean$T
       ind <- rank(-apply(tmeans,2,sd))
@@ -1644,59 +1790,23 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
     }
     if(cctfit$BUGSoutput$n.chains > 1){
       if(gui==TRUE){message(paste("\nFor Discrete Parameters:"))
-                 message(paste("Type 'dtraceplot()' to see their trace plots")) }
-      alltraceplot <<- function(){traceplot(cctfit,mfrow=c(4,4))}
-      dtraceplot <<- function(){
-        if(cctfit$whmodel=="GCM"){
-          if(cctfit$V==1){
-            cctfit2 <- cctfit
-            cctfit2$BUGSoutput$sims.array <- cctfit2$BUGSoutput$sims.array[,,c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]])]
-            traceplot(cctfit2,mfrow=c(4,4))
-          }else{
-            cctfit2 <- cctfit
-            cctfit2$BUGSoutput$sims.array <- cctfit2$BUGSoutput$sims.array[,,c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]])]
-            traceplot(cctfit2,mfrow=c(4,4))
-          }
-        }else{
-          if(cctfit$V==1){
-            if(gui==TRUE){message("\n There are no discrete nodes in this inference")}
-            return()
-          }else{
-            cctfit2 <- cctfit
-            cctfit2$BUGSoutput$sims.array <- cctfit2$BUGSoutput$sims.array[,,c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]])]
-            traceplot(cctfit2,mfrow=c(4,4))
-          }
-        }
-      }
+                 message(paste("Use button 'Traceplot Discrete' to see their trace plots",sep=""))
+                 }else{
+                   message(paste("\nFor Discrete Parameters:"))
+                   message(paste("Use function 'dtraceplot()' to see their trace plots",sep=""))  
+                   message(paste("\nUse function 'cctmemb()' to see the respondent cluster assignments",sep=""))
+                   
+                 }
     }
     
   }else{
-    
-    if(cctfit$whmodel=="GCM" && cctfit$BUGSoutput$n.chains > 1){
-      message(paste("\nFor Discrete Parameters:"))
-      message(paste("Type 'dtraceplot()' to see their trace plots"))
-      alltraceplot <<- function(){traceplot(cctfit,mfrow=c(4,4))}
-      dtraceplot <<- function(){
-        if(cctfit$whmodel=="GCM"){
-          if(cctfit$V==1){
-            cctfit2 <- cctfit
-            cctfit2$BUGSoutput$sims.array <- cctfit2$BUGSoutput$sims.array[,,c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]])]
-            traceplot(cctfit2,mfrow=c(4,4))
-          }else{
-            cctfit2 <- cctfit
-            cctfit2$BUGSoutput$sims.array <- cctfit2$BUGSoutput$sims.array[,,c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]])]
-            traceplot(cctfit2,mfrow=c(4,4))
-          }
-        }else{
-          if(cctfit$V==1){
-            message("\n There are no discrete nodes in this inference")
-            return()
-          }else{
-            cctfit2 <- cctfit
-            cctfit2$BUGSoutput$sims.array <- cctfit2$BUGSoutput$sims.array[,,c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]])]
-            traceplot(cctfit2,mfrow=c(4,4))
-          }
-        }
+    cctfit$respmem <- rep(1,cctfit$n)
+    if(cctfit$BUGSoutput$n.chains > 1){
+      if(gui==TRUE){message(paste("\nFor Discrete Parameters:"))
+                    message(paste("Use button 'Traceplot Discrete' to see their trace plots",sep=""))
+      }else{
+        message(paste("\nFor Discrete Parameters:"))
+        message(paste("Use function 'dtraceplot()' to see their trace plots",sep=""))  
       }
     }
     
@@ -1923,11 +2033,24 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
   message(paste("DIC : ",round(cctfit$BUGSoutput$DIC,2),"   pD : ",round(cctfit$BUGSoutput$pD,2),sep=""))
   
   if(gui==TRUE){
-    cctfit <<- cctfit
-    tkconfigure(plotresults.but, state="normal") 
-    tkconfigure(doppc.but, state="normal") 
-    tkconfigure(exportresults.but, state="normal") 
+    guidat <- get("guidat", pkg_globals)
+    tkconfigure(guidat$plotresults.but, state="normal") 
+    tkconfigure(guidat$doppc.but, state="normal") 
+    tkconfigure(guidat$exportresults.but, state="normal")
+    tkconfigure(guidat$printfit.but, state="normal")
+    tkconfigure(guidat$summary.but, state="normal")
+    tkconfigure(guidat$sendconsole.but, state="normal")
+    tkconfigure(guidat$memb.but, state="normal")
+    tkconfigure(guidat$mvest.but, state="normal")
+    #if(guidat$mval == TRUE){tkconfigure(guidat$mvest.but, state="normal")}
+    tkconfigure(guidat$traceplotdiscrete.but, state="normal")
+    tkconfigure(guidat$traceplotall.but, state="normal")
+    cctfit$guidat <- guidat
+    assign("guidat", guidat, pkg_globals)
+    class(cctfit) <- c("cct",class(cctfit))
+    return(cctfit)
   }else{
+    class(cctfit) <- c("cct",class(cctfit))
     return(cctfit)
   }
   
@@ -1941,7 +2064,8 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
 #- This function is also called during the file export, and .eps and .jpeg's of the plot are saved
 ######################
 plotresultsfuncbutton <- function() {
-  plotresultsfunc(cctfit=cctfit,gui=TRUE)
+  guidat <- get("guidat", pkg_globals);
+  plotresultsfunc(cctfit=get(guidat$varname, pkg_globals),gui=TRUE)
 }
 
 plotresultsfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE) {
@@ -1959,7 +2083,7 @@ plotresultsfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE) {
     return(HDIlim) 
   }
   
-  #Mode <<- function(x) {ux <- unique(x);  ux[which.max(tabulate(match(x, ux)))]}
+  Mode <- function(x) {ux <- unique(x); ux[which.max(tabulate(match(x, ux)))] }
   cctfit$respmem <- apply(cctfit$BUGSoutput$sims.list$Om[,],2,Mode)
   
   if(saveplots==1){jpeg(file.path(gsub(".Rdata","results.jpg",savedir)),width = 6, height = 6, units = "in", pointsize = 12,quality=100,res=400)}
@@ -2239,18 +2363,26 @@ plotresultsfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE) {
 #- This function is also called in the file export and saves .eps and .jpegs of the plot
 ######################
 ppcfuncbutton <- function(){
+  guidat <- get("guidat", pkg_globals)
+  cctfit <- get(guidat$varname, pkg_globals)
   
-  if(cctfit$whmodel=="LTRM" && cctfit$checksrun==TRUE){ 
-    if(cctfit$polycor!=as.logical(as.numeric(tclvalue(polyvar)))){
-      cctfit$checksrun <- FALSE; cctfit <<- cctfit
+   recalc <- FALSE
+   if(cctfit$whmodel=="LTRM" && cctfit$checksrun==TRUE){ 
+      if(cctfit$polycor!=as.logical(as.numeric(tclvalue(guidat$polyvar)))){
+        recalc <- TRUE
+      }
     }
-  }
-  ppcfunc(cctfit=cctfit,gui=TRUE,polych=as.logical(as.numeric(tclvalue(polyvar))))
+  
+  assign(guidat$varname,
+         ppcfunc(cctfit=cctfit,gui=TRUE,rerunchecks=recalc,polych=as.logical(as.numeric(tclvalue(guidat$polyvar)))),
+         pkg_globals
+  )
 }
 
-ppcfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE,polych=FALSE) {
+ppcfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE,polych=FALSE,rerunchecks=FALSE) {
+  if(gui==TRUE){guidat <- get("guidat", pkg_globals)}
   
-  if(cctfit$checksrun==FALSE){
+  if(cctfit$checksrun==FALSE || rerunchecks==TRUE){
     message("\n ...One moment, calculating posterior predictive checks")
     
     usesubset <- 1
@@ -2312,7 +2444,7 @@ ppcfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE,polych=FALSE) {
         
         if(sum(apply(cctfit$data,1,function(x) sd(x,na.rm=TRUE))==0) > 0){
           tmp <- cctfit$data
-          if(sum(apply(datob$dat,1,function(x) sd(x,na.rm=TRUE))==0)==1){
+          if(sum(apply(cctfit$datob$dat,1,function(x) sd(x,na.rm=TRUE))==0)==1){
             tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE))==0),1] <-  min(tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE))==0),1]+.01,.99)
           }else{
             tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE))==0),1] <- sapply(apply(tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE))==0),],1,mean),function(x) min(x+.01,.99))
@@ -3003,13 +3135,12 @@ ppcfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE,polych=FALSE) {
       
     }
     
-    if(cctfit$mval==TRUE && gui==TRUE){
-      message("\n ...Type 'cctfit$MVest' to display the posterior predictive estimates for missing data cells \n ...     'cctfit$data' to view the full data matrix \n ...     'cctfit$datamiss' to view the matrix with missing values")
+    if(cctfit$mval==TRUE && gui==FALSE){
+      message(paste("\n ...Use function 'cctmvest()' to view model estimates for missing data",sep=""))
+     # message(paste("\n ...Use  '",guidat$varname,"$MVest' to view posterior predictive estimates for missing data\n ...     '",guidat$varname,"$data' to view the full data matrix \n ...     '",guidat$varname,"$datamiss' to view the matrix with missing values",sep=""))
     }
     message("\n ...Posterior predictive checks complete")
   }
-  
-  if(gui==TRUE){cctfit <<- cctfit}
   
   if(saveplots==1){jpeg(file.path(gsub(".Rdata","ppc.jpg",savedir)),width = 6, height = 3, units = "in", pointsize = 12,quality=100,res=400)}
   if(saveplots==2){postscript(file=file.path(gsub(".Rdata","ppc.eps",savedir)), onefile=FALSE, horizontal=FALSE, width = 6, height = 6, paper="special", family="Times")}
@@ -3058,11 +3189,69 @@ ppcfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE,polych=FALSE) {
   if(saveplots==1 || saveplots==2){dev.off()}
   saveplots <- 0
   
-  if(gui==TRUE){cctfit <<- cctfit}
-  if(gui==FALSE){return(cctfit)}
+    return(cctfit)  
+}
+
+#######################
+#Accessor Function for Missing Value Estimates
+#######################
+cctmvest <- function(cctfit){
+  
+  if(cctfit$mval==FALSE){
+    message("\n ...Data has no missing values to estimate",sep="")
+    return()
+  }
+  if(cctfit$checksrun==FALSE){
+    message("\n ...Please use 'cctppc()' first",sep="")
+  }else{
+    return(cctfit$MVest)
+  }
   
 }
 
+#######################
+#Accessor Function for Cluster Memberships
+#######################
+cctmemb <- function(cctfit){
+  return(cctfit$respmem)
+}
+
+
+#######################
+#cctfit Summary Function
+#######################
+cctsum <- function(cctfit){
+  tmp <- c(" ","X")
+  if(cctfit$checksrun==FALSE){
+  cctfit$sumtab <- t(array(
+    c(paste("Data:"),cctfit$datob$datatype,paste("Model:"),cctfit$whmodel,
+      paste("Respondents:"),cctfit$n,paste("Items:"),cctfit$m,
+      paste("Observations:   "),paste(100*round(cctfit$datob$nobs / (cctfit$datob$nobs+cctfit$datob$nmiss),2),"%",sep=""),paste("Missing Values:   "),paste(100*round(cctfit$datob$nmiss / (cctfit$datob$nobs+cctfit$datob$nmiss),2),"%",sep=""),
+      paste("Cultures:"),cctfit$V,paste("Item Difficulty"),paste("[",tmp[cctfit$itemdiff+1],"]",sep=""),
+      paste("DIC:"),round(cctfit$BUGSoutput$DIC,2),paste("pD:"),round(cctfit$BUGSoutput$pD,2),
+      paste("Rhats > 1.10:"),paste(cctfit$Rhat$above110,"/",cctfit$Rhat$ncp),paste("Rhats > 1.05:"),paste(cctfit$Rhat$above105,"/",cctfit$Rhat$ncp),
+      paste("Samples:"),cctfit$BUGSoutput$n.iter,paste("Chains:"),cctfit$BUGSoutput$n.chains,
+      paste("Burn-in:"),cctfit$BUGSoutput$n.burnin,paste("Thinning:"),cctfit$BUGSoutput$n.thin
+      #,paste("PPC Calculated"),paste("[",tmp[cctfit$checksrun+1],"]",sep=""),paste(""),paste("")
+    ),c(4,8)))
+  }else{
+      cctfit$sumtab <- t(array(
+        c(paste("Data:"),cctfit$datob$datatype,paste("Model:"),cctfit$whmodel,
+          paste("Respondents:"),cctfit$n,paste("Items:"),cctfit$m,
+          paste("Observations:   "),paste(100*round(cctfit$datob$nobs / (cctfit$datob$nobs+cctfit$datob$nmiss),2),"%",sep=""),paste("Missing Values:   "),paste(100*round(cctfit$datob$nmiss / (cctfit$datob$nobs+cctfit$datob$nmiss),2),"%",sep=""),
+          paste("Cultures:"),cctfit$V,paste("Item Difficulty"),paste("[",tmp[cctfit$itemdiff+1],"]",sep=""),
+          paste("DIC:"),round(cctfit$BUGSoutput$DIC,2),paste("pD:"),round(cctfit$BUGSoutput$pD,2),
+          paste("Rhats > 1.10:"),paste(cctfit$Rhat$above110,"/",cctfit$Rhat$ncp),paste("Rhats > 1.05:"),paste(cctfit$Rhat$above105,"/",cctfit$Rhat$ncp),
+          paste("PPC Calculated"),paste("[",tmp[cctfit$checksrun+1],"]",sep=""),paste("VDI"),paste(round(c(cctfit$VDI)),collapse=', '),
+          paste("Samples:"),cctfit$BUGSoutput$n.iter,paste("Chains:"),cctfit$BUGSoutput$n.chains,
+          paste("Burn-in:"),cctfit$BUGSoutput$n.burnin,paste("Thinning:"),cctfit$BUGSoutput$n.thin
+          ),c(4,9)))  
+    }
+  
+  rownames(cctfit$sumtab) <- rep("", nrow(cctfit$sumtab))
+  colnames(cctfit$sumtab) <- rep("", ncol(cctfit$sumtab))
+  print(cctfit$sumtab,quote=F)
+}  
 ######################
 #Function for the 'Export Results' Button
 #- Prompts user where to save, and the filename to use
@@ -3071,10 +3260,11 @@ ppcfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE,polych=FALSE) {
 #    if the checks were calculated (the checks button was pressed)
 ######################
 exportfuncbutton <- function() {
-  exportfunc(cctfit=cctfit,gui=TRUE)
+  guidat <- get("guidat", pkg_globals)
+  exportfunc(cctfit=get(guidat$varname, pkg_globals),gui=TRUE,guidat=guidat)
 }
 
-exportfunc <- function(cctfit,filename=paste(getwd(),"/CCTpackdata.Rdata",sep=""),gui=FALSE) {
+exportfunc <- function(cctfit,filename=paste(getwd(),"/CCTpackdata.Rdata",sep=""),gui=FALSE,guidat=NULL) {
   
   if(gui==TRUE){
     savedir <- tclvalue(tkgetSaveFile(initialfile = "CCTpackdata.Rdata",filetypes = "{{Rdata Files} {.Rdata}}"))
@@ -3105,6 +3295,145 @@ exportfunc <- function(cctfit,filename=paste(getwd(),"/CCTpackdata.Rdata",sep=""
   message("\n ...Export complete\n")
 }
 
+######################
+#Function for the 'Fit Summary' Button
+#- Gives a basic summary of the fit
+######################
+summaryfuncbutton <- function() {
+  guidat <- get("guidat", pkg_globals)
+
+  summary(get(guidat$varname, pkg_globals))
+}
+
+######################
+#Function for the 'Print Fit' Button
+#- Prints the cctfit object in the console
+######################
+printfitfuncbutton <- function() {
+  guidat <- get("guidat", pkg_globals)
+  
+  print(get(guidat$varname, pkg_globals))
+}
+
+######################
+#Function for the 'Send to Console' Button
+#- Gives user the code to load the cctfit object into the console
+######################
+sendconsolefuncbutton <- function() {
+  guidat <- get("guidat", pkg_globals)
+
+  message("\n ...Paste the following to send your fit object into the R console
+           \n    ",guidat$varname," <- CCTpack:::pkg_globals$",guidat$varname,
+          "\n",sep="")
+}
+
+######################
+#Function for the 'Send to Console' Button
+#- Gives user the code to load the cctfit object into the console
+######################
+sendconsolefuncbutton <- function() {
+  guidat <- get("guidat", pkg_globals)
+  message("",sep="")
+  message("\n ...Paste the following to send your fit object into the R console
+          \n    ",guidat$varname," <- CCTpack:::pkg_globals$",guidat$varname,
+          "\n")
+}
+
+######################
+#Function for the 'Resp Memberships' Button
+#- Outputs the respondent memberships from the model fit
+######################
+membfuncbutton <- function(){
+  guidat <- get("guidat", pkg_globals)
+  message("\n ...Model-based cluster memberships for each respondent \n",sep="")
+  print(get(guidat$varname, pkg_globals)$respmem)
+  #print(get(guidat$varname, pkg_globals)$MVest)
+}
+
+######################
+#Function for the 'NA Value Est' Button
+#- Plot traceplots for all discrete parameters 3x3 plot size
+######################
+mvestfuncbutton <- function(){
+  guidat <- get("guidat", pkg_globals)
+  cctfit <- get(guidat$varname, pkg_globals)
+  if(cctfit$mval==FALSE){
+    message("\n ...Data has no missing values to estimate\n",sep="")
+    return()
+  }
+  if(cctfit$checksrun==FALSE){
+  message("\n ...Please use 'Run Checks' first",sep="")
+  }else{
+    message("\n ...Model estimates for missing values \n",sep="")
+    print(cctfit$MVest)  
+  }
+}
+
+######################
+#Function for the 'Traceplot Discrete' Button
+#- Plot traceplots for all discrete parameters 3x3 plot size
+######################
+traceplotdiscretefuncbutton <- function() {
+  guidat <- get("guidat", pkg_globals)
+  
+  dtraceplot(get(guidat$varname, pkg_globals))
+}
+
+######################
+#Function for the 'Traceplot Continuous' Button
+#- Plot traceplots for all parameters 3x3 plot size
+######################
+traceplotallfuncbutton <- function() {
+  guidat <- get("guidat", pkg_globals)
+  
+  traceplot(get(guidat$varname, pkg_globals),mfrow=c(3,3), ask = FALSE)
+}
+
+
+dtraceplot <- function(cctfit,ask=FALSE){
+  if(cctfit$V==1 && cctfit$whmodel!="GCM"){
+    message("\n ...There are no discrete nodes in this inference")
+    return() 
+  }
+
+  if(cctfit$whmodel!="GCM"){
+    inds <- c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]])
+  }else{
+    if(cctfit$V==1){
+      inds <- c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]])
+    }
+    if(cctfit$V>1){
+      inds <- c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]])   
+    }  
+  }
+   
+  if(cctfit$BUGSoutput$n.chains > 1){
+    cctfit$BUGSoutput$sims.array <- cctfit$BUGSoutput$sims.array[,,inds]  
+  }else{
+    dmnames <- dimnames(cctfit$BUGSoutput$sims.array); dmnames[[3]] <- dmnames[[3]][inds] 
+    tmp <-  array(cctfit$BUGSoutput$sims.array[,,inds],c(cctfit$BUGSoutput$n.keep,length(inds),1))
+    cctfit$BUGSoutput$sims.array <- aperm(tmp,c(1,3,2)); dimnames(cctfit$BUGSoutput$sims.array) <- dmnames;
+  }
+    
+  traceplot(cctfit,ask=ask,mfrow=c(3,3))  
+}
+
 #######################
 #End of Functions for the GUI and/or Standalone Functions
 #######################
+
+#######################
+#Package Methods
+#######################
+
+setClass("cct",contains=c("rjags")); 
+setGeneric("plot"); setGeneric("screeplot"); setGeneric("summary")
+setMethod("plot",signature=c(x="cct"),definition=function(x) cctresults(x))
+setMethod("summary",signature=c(object="cct"),definition=function(object) cctsum(object))
+setMethod("screeplot",signature=c(x="data.frame"),definition=function(x,polych=F) cctscree(x,polych=polych))
+setMethod("screeplot",signature=c(x="matrix"),definition=function(x,polych=F) cctscree(x,polych=polych))
+setMethod("screeplot",signature=c(x="cct"),definition=function(x,polych=F) cctscree(x$datob$dat,polych=polych))
+
+######################
+#END CCTpack
+######################

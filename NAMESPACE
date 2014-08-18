@@ -1,3 +1,6 @@
-export(cctgui,cctscree,cctapply,cctresults,cctppc,cctexport)
-import(tcltk,R2jags,rjags,mvtnorm,polycor,MASS)
+export(cctgui,cctscree,cctapply,cctresults,cctppc,cctexport,cctmvest,cctmemb,plot,screeplot,summary,dtraceplot)
+import(tcltk,R2jags,rjags,mvtnorm,polycor,MASS,methods)
 importFrom(psych, fa, polychoric)
+importFrom(graphics, plot)
+exportClasses("cct")
+exportMethods("plot","screeplot","summary") 
