@@ -188,7 +188,7 @@ cctgui <- function(){
 #- 'exportfilename' set a name different from "" if one wants to automatically export the results 
 #    to the working directory
 ######################
-cctapply <- function(data,clusters=1,itemdiff=FALSE,samples=10000,chains=3,burnin=2000,thinning=1,runchecks=TRUE,exportfilename="",polych=FALSE,parallel=FALSE,seed=NULL,plotr=TRUE){
+cctapply <- function(data,clusters=1,itemdiff=FALSE,samples=10000,chains=3,burnin=2000,thinning=1,runchecks=FALSE,exportfilename="",polych=FALSE,parallel=FALSE,seed=NULL,plotr=FALSE){
   if(!is.null(seed)){
     set.seed(1); rm(list=".Random.seed", envir=globalenv())
     set.seed(seed)
@@ -198,7 +198,7 @@ cctapply <- function(data,clusters=1,itemdiff=FALSE,samples=10000,chains=3,burni
   cctfit <- applymodelfunc(datob,clusters=clusters,itemdiff=itemdiff,jags.iter=samples,jags.chains=chains,jags.burnin=burnin,jags.thin=thinning,parallel=parallel)
   if(plotr==TRUE){plotresultsfunc(cctfit)}
   if(runchecks==TRUE){
-    cctfit <- ppcfunc(cctfit,polych=polych)
+    cctfit <- ppcfunc(cctfit,polych=polych,doplot=FALSE)
   }
   if(exportfilename!=""){
     exportfunc(cctfit,filename=exportfilename)
@@ -228,7 +228,7 @@ cctresults <- function(cctfit){
 #- Takes the cctfit object from cctapply() or the 'Apply CCT Model' button
 #- Plots the posterior predictive checks, or calculates them and then plots them (if they have not been calculated yet)
 ######################
-cctppc <- function(cctfit,polych=FALSE){
+cctchecks <- cctppc <- function(cctfit,polych=FALSE,doplot=TRUE){
   
   if(cctfit$whmodel=="LTRM" && cctfit$checksrun==TRUE){
     if(cctfit$polycor!=polych){cctfit$checksrun <- FALSE}
@@ -585,10 +585,12 @@ screeplotfunc <- function(datob,saveplots=0,savedir="",gui=FALSE,polych=FALSE,no
           tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE))==0),1] <- sapply(apply(tmp[which(apply(tmp,1,function(x) sd(x,na.rm=TRUE))==0),],1,mean),function(x) min(x+.01,.99))
         }
         par(oma=c(0,0,0,0),mar=c(4,4,3,1),mgp=c(2.25,.75,0),mfrow=c(1,1))
-        suppressMessages(plot(fa(cor(t(tmp)))$values[1:8],las=1,type="b",bg="black",pch=21,xlab="Factor",ylab="Magnitude",main="Scree Plot of Data"))
+        datob$factors <- suppressMessages(fa(cor(t(datob$dat)))$values[1:8])
+        suppressMessages(plot(datob$factors,las=1,type="b",bg="black",pch=21,xlab="Factor",ylab="Magnitude",main="Scree Plot of Data"))
       }else{
         par(oma=c(0,0,0,0),mar=c(4,4,3,1),mgp=c(2.25,.75,0),mfrow=c(1,1))
-        suppressMessages(plot(fa(cor(t(datob$dat)))$values[1:8],las=1,type="b",bg="black",pch=21,xlab="Factor",ylab="Magnitude",main="Scree Plot of Data"))
+        datob$factors <- suppressMessages(fa(cor(t(datob$dat)))$values[1:8])
+        suppressMessages(plot(datob$factors,las=1,type="b",bg="black",pch=21,xlab="Factor",ylab="Magnitude",main="Scree Plot of Data"))
       }
       
     }
@@ -606,12 +608,13 @@ screeplotfunc <- function(datob,saveplots=0,savedir="",gui=FALSE,polych=FALSE,no
     if(polych==TRUE){
       if(length(datob$datfactorsp)==1){
         message("    note: utilizing polychoric correlations (time intensive)")
-        datob$datfactorsp <- suppressMessages(fa(polychoric(t(datob$dat),global=FALSE)$rho)$values[1:8])
+        datob$factors <- datob$datfactorsp <- suppressMessages(fa(polychoric(t(datob$dat),global=FALSE)$rho)$values[1:8])
       }
       datob$datfactors <- datob$datfactorsp
     }else{
       if(length(datob$datfactorsp)==1){
-        datob$datfactorsc <- suppressMessages(fa(cor(t(datob$dat)))$values[1:8])
+        datob$factors <- datob$datfactorsc <- suppressMessages(fa(cor(t(datob$dat)))$values[1:8])
+        
       }
       datob$datfactors <- datob$datfactorsc
     }
@@ -806,7 +809,48 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
   }
   }"
 
-  mcltrm <-
+  mcgcmidsingle <-
+    "model{
+  for (l in 1:nobs){
+  D[Y[l,1],Y[l,2]] <- (th[Y[l,1]]*(1-lam[Y[l,2],Om[Y[l,1]]])) / ((th[Y[l,1]]*(1-lam[Y[l,2],Om[Y[l,1]]]))+(lam[Y[l,2],Om[Y[l,1]]]*(1-th[Y[l,1]])))   
+  pY[Y[l,1],Y[l,2]] <- (D[Y[l,1],Y[l,2]]*Z[Y[l,2],Om[Y[l,1]]]) +((1-D[Y[l,1],Y[l,2]])*g[Y[l,1]])
+  Y[l,3] ~ dbern(pY[Y[l,1],Y[l,2]]) }  
+  
+  for (i in 1:nresp){
+  Om[i] ~ dcat(pi) 
+  th[i] ~ dbeta(thmu[Om[i]]*thtau[Om[i]],(1-thmu[Om[i]])*thtau[Om[i]])
+  g[i] ~ dbeta(gmu[Om[i]]*gtau[Om[i]],(1-gmu[Om[i]])*gtau[Om[i]]) }
+  
+  for (k in 1:nitem){
+  lam[k] ~ dbeta(lammu*lamtau,(1-lammu)*lamtau)
+  for (v in 1:V){
+  Z[k,v] ~ dbern(p[v])
+  }}
+  
+  #Hyper Parameters
+  lamsmu <- 10
+  lamssig <- 10
+  gsmu <- 10
+  gssig <- 10
+  dsmu <- 10
+  dssig <- 10
+  alpha <- 2
+  pi[1:V] ~ ddirch(L)
+  
+  lammu <- .5
+  lamtau ~ dgamma(pow(lamsmu,2)/pow(lamssig,2),lamsmu/pow(lamssig,2))
+  
+  for (v in 1:V){
+  p[v] ~ dunif(0,1)
+  gmu[v] <- .5
+  gtau[v] ~ dgamma(pow(gsmu,2)/pow(gssig,2),gsmu/pow(gssig,2))
+  thmu[v] ~ dbeta(alpha,alpha)
+  thtau[v] ~ dgamma(pow(dsmu,2)/pow(dssig,2),dsmu/pow(dssig,2))
+  L[v] <- 1
+  }
+}"
+  
+mcltrm <-
     "model{
   for (l in 1:nobs){
   tau[Y[l,1],Y[l,2]] <- pow(E[Y[l,1]],-2)
@@ -1257,6 +1301,10 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
     
     cctfit2$BUGSoutput$sims.list[["th"]] <- array(cctfit2$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="th")]]], c(nsamp*nch,cctfit$n))
     cctfit2$BUGSoutput$sims.list[["g"]] <- array(cctfit2$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="g")]]], c(nsamp*nch,cctfit$n))
+    #new code
+    cctfit2$BUGSoutput$mean[["th"]] <- apply(cctfit2$BUGSoutput$sims.list[["th"]],2,mean)
+    cctfit2$BUGSoutput$mean[["g"]] <- apply(cctfit2$BUGSoutput$sims.list[["g"]],2,mean)
+    
     if(cctfit$itemdiff==TRUE){cctfit2$BUGSoutput$sims.list[["lam"]] <- array(cctfit2$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="lam")]]], c(nsamp*nch,cctfit$m))}
     
     cctfit2$BUGSoutput$sims.list[["Z"]] <- array(NA, c(nsamp*nch,cctfit$m,cctfit$V))
@@ -1411,6 +1459,11 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
     cctfit2$BUGSoutput$sims.list[["E"]] <- array(cctfit2$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="E")]]], c(nsamp*nch,cctfit$n))
     cctfit2$BUGSoutput$sims.list[["a"]] <- array(cctfit2$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="a")]]], c(nsamp*nch,cctfit$n))
     cctfit2$BUGSoutput$sims.list[["b"]] <- array(cctfit2$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="b")]]], c(nsamp*nch,cctfit$n))
+    #new code
+    cctfit2$BUGSoutput$mean[["E"]] <- apply(cctfit2$BUGSoutput$sims.list[["E"]],2,mean)
+    cctfit2$BUGSoutput$mean[["a"]] <- apply(cctfit2$BUGSoutput$sims.list[["a"]],2,mean)
+    cctfit2$BUGSoutput$mean[["b"]] <- apply(cctfit2$BUGSoutput$sims.list[["b"]],2,mean)
+    
     if(cctfit$itemdiff==TRUE){cctfit2$BUGSoutput$sims.list[["lam"]] <- array(cctfit2$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="lam")]]], c(nsamp*nch,cctfit$m))}
     
     cctfit2$BUGSoutput$sims.list[["T"]] <- array(NA, c(nsamp*nch,cctfit$m,cctfit$V))
@@ -1581,6 +1634,11 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
     cctfit2$BUGSoutput$sims.list[["E"]] <- array(cctfit2$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="E")]]], c(nsamp*nch,cctfit$n))
     cctfit2$BUGSoutput$sims.list[["a"]] <- array(cctfit2$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="a")]]], c(nsamp*nch,cctfit$n))
     cctfit2$BUGSoutput$sims.list[["b"]] <- array(cctfit2$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="b")]]], c(nsamp*nch,cctfit$n))
+    #new code
+    cctfit2$BUGSoutput$mean[["E"]] <- apply(cctfit2$BUGSoutput$sims.list[["E"]],2,mean)
+    cctfit2$BUGSoutput$mean[["a"]] <- apply(cctfit2$BUGSoutput$sims.list[["a"]],2,mean)
+    cctfit2$BUGSoutput$mean[["b"]] <- apply(cctfit2$BUGSoutput$sims.list[["b"]],2,mean)
+    
     if(cctfit$itemdiff==TRUE){cctfit2$BUGSoutput$sims.list[["lam"]] <- array(cctfit2$BUGSoutput$sims.array[,,cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="lam")]]], c(nsamp*nch,cctfit$m))}
     
     cctfit2$BUGSoutput$sims.list[["T"]] <- array(NA, c(nsamp*nch,cctfit$m,cctfit$V))
@@ -1671,7 +1729,22 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
 #     message("\n    'cctfit$respmem' provides the respondent clustering")
 #   }
   
+  hdi <- function(sampleVec, credMass=0.95){
+    sortedPts = sort(sampleVec)
+    ciIdxInc = floor(credMass * length( sortedPts) )
+    nCIs = length( sortedPts) - ciIdxInc
+    ciwidth = rep(0, nCIs)
+    for(i in 1:nCIs){
+      ciwidth[i] = sortedPts[i + ciIdxInc] - sortedPts[i]}
+    HDImin = sortedPts[which.min(ciwidth)]
+    HDImax = sortedPts[which.min(ciwidth)+ciIdxInc]
+    HDIlim = c(HDImin,HDImax)
+    return(HDIlim) 
+  }
+  
+  
   message("\n ...Performing final calculations")
+   # }
   if(cctfit$BUGSoutput$n.chains > 1){
     cctfit$BUGSoutput$summary[,8] <- Rhat(cctfit$BUGSoutput$sims.array)
     cctfit$BUGSoutput$summary[,8][is.nan(cctfit$BUGSoutput$summary[,8])] <- 1.000000
@@ -1780,14 +1853,33 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
       ind <- rank(-apply(tmeans,2,sd))
     }
     
+# old code:
+#     if(cctfit$BUGSoutput$n.chains > 1){
+#       message(paste("\nFor Continuous Parameters:"))
+#       if(cctfit$whmodel== "GCM"){
+#         message(paste("Number of Rhats above 1.10 : ",sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]>1.10),"/",length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]),"\nNumber of Rhats above 1.05 : ",sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]>1.050),"/",length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]),sep=""))
+#       }else{
+#         message(paste("Number of Rhats above 1.10 : ",sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]>1.10),"/",length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]),"\nNumber of Rhats above 1.05 : ",sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]>1.050),"/",length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]),sep=""))
+#       }
+#     }
     if(cctfit$BUGSoutput$n.chains > 1){
-      message(paste("\nFor Continuous Parameters:"))
+      cctfit$BUGSoutput$summary[,8] <- Rhat(cctfit$BUGSoutput$sims.array)
+      cctfit$BUGSoutput$summary[,8][is.nan(cctfit$BUGSoutput$summary[,8])] <- 1.000000
       if(cctfit$whmodel== "GCM"){
-        message(paste("Number of Rhats above 1.10 : ",sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]>1.10),"/",length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]),"\nNumber of Rhats above 1.05 : ",sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]>1.050),"/",length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]),sep=""))
+        cctfit$Rhat$ncp <- length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8])
+        cctfit$Rhat$above110 <- sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]>1.10)
+        cctfit$Rhat$above105 <- sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]],cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Z")]]),8]>1.050)
       }else{
-        message(paste("Number of Rhats above 1.10 : ",sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]>1.10),"/",length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]),"\nNumber of Rhats above 1.05 : ",sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]>1.050),"/",length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]),sep=""))
+        cctfit$Rhat$ncp <- length(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8])
+        cctfit$Rhat$above110 <- sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]>1.10)
+        cctfit$Rhat$above105 <- sum(cctfit$BUGSoutput$summary[-c(cctfit$BUGSoutput$long.short[[which(cctfit$BUGSoutput$root.short=="Om")]]),8]>1.050)
       }
+      message(paste("\nFor Continuous Parameters"))
+      message(paste("Number of Rhats above 1.10 : ",cctfit$Rhat$above110,"/",cctfit$Rhat$ncp,"\nNumber of Rhats above 1.05 : ",cctfit$Rhat$above105,"/",cctfit$Rhat$ncp))
     }
+    
+    
+    
     if(cctfit$BUGSoutput$n.chains > 1){
       if(gui==TRUE){message(paste("\nFor Discrete Parameters:"))
                  message(paste("Use button 'Traceplot Discrete' to see their trace plots",sep=""))
@@ -1810,6 +1902,77 @@ applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.
       }
     }
     
+  }
+  
+  ######################
+  #Calculates Read-out tables for subjects and items
+  #
+  #######################
+  Mode <- function(x) {ux <- unique(x); ux[which.max(tabulate(match(x, ux)))] }
+  cctfit$paramsall <- cctfit$parameters.to.save
+  cctfit$params <- cctfit$paramsall[cctfit$parameters.to.save %in% c("Z","T","Om","th","E","a","b","g","lam","gam")]
+  if(cctfit$V > 1){appdims <- c(2,3)}else{appdims <- 2}
+  a <- data.frame(ans=round(cctfit$BUGSoutput$mean[[cctfit$params[cctfit$params %in% c("Z","T")]]],2)); 
+  #a <- data.frame(ans=round(apply(cctfit$BUGSoutput$sims.list[[cctfit$params[1]]],c(2,3),mean),2)) # should be c(2,3) in all cases here; 
+  dimnames(a)[[2]] <- gsub(pattern="s.",replacement=paste("s",sep=""),x=dimnames(a)[[2]]);  dimnames(a)[[2]] <- paste(dimnames(a)[[2]],"_",cctfit$params[cctfit$params %in% c("Z","T")],sep="")
+  a <- data.frame(item=1:cctfit$m,a)
+  if(cctfit$itemdiff==TRUE){
+    d <- data.frame(diff=round(cctfit$BUGSoutput$mean[["lam"]],2)) 
+    #d <- data.frame(diff=round(apply(cctfit$BUGSoutput$sims.list[["lam"]],c(2,3),mean),2)); # should be c(2,3) in all cases here; 
+    dimnames(d)[[2]] <- gsub(pattern="ff.",replacement=paste("ff",sep=""),x=dimnames(d)[[2]]);  dimnames(d)[[2]] <- paste(dimnames(d)[[2]],"_lam",sep="")
+    a <- data.frame(a,d)
+  }
+  cctfit$item <- a
+  
+  p <- data.frame(group_Om=apply(cctfit$BUGSoutput$sims.list$Om[,],2,Mode),
+                  #comp=apply(cctfit$BUGSoutput$sims.list[[cctfit$params[3]]],2,mean));
+                  comp=round(cctfit$BUGSoutput$mean[[cctfit$params[cctfit$params %in% c("th","E")]]],2));
+  dimnames(p)[[2]][2] <- paste(dimnames(p)[[2]][2],"_",cctfit$params[cctfit$params %in% c("th","E")],sep="")
+  b <- round(as.data.frame(cctfit$BUGSoutput$mean[which(names(cctfit$BUGSoutput$mean) %in% c("a","b","g"))]),2)
+  dimnames(b)[[2]] <- paste("bias_",dimnames(b)[[2]],sep="")
+  p <- data.frame(participant=1:cctfit$n,p,b)
+  cctfit$subj <- p
+  
+  tmphdi <- apply(cctfit$BUGSoutput$sims.list[[cctfit$params[1]]],appdims,hdi)
+  ahdi <- NULL; 
+  if(cctfit$V>1){for(i in 1:cctfit$V){ ahdi <- cbind(ahdi,t(tmphdi[,,i])) }; 
+  }else{ahdi <- t(tmphdi)}; ahdi <- data.frame(ahdi)
+  for(i in seq(from=1,to=(cctfit$V*2),by=2)){dimnames(ahdi)[[2]][i] <- paste("l_ans",ceiling(i/2),sep=""); dimnames(ahdi)[[2]][i+1] <- paste("u_ans",ceiling(i/2),sep="")}
+  if(cctfit$itemdiff==TRUE){
+    tmphdi <- apply(cctfit$BUGSoutput$sims.list[["lam"]],appdims,hdi)
+    dhdi <- NULL; 
+    if(cctfit$V>1){
+    for(i in 1:cctfit$V){ dhdi <- round(cbind(dhdi,t(tmphdi[,,i])),2) };
+    }else{dhdi <- t(tmphdi)};  dhdi <- data.frame(dhdi)
+    for(i in seq(from=1,to=(cctfit$V*2),by=2)){dimnames(dhdi)[[2]][i] <- paste("l_diff",ceiling(i/2),sep=""); dimnames(dhdi)[[2]][i+1] <- paste("u_diff",ceiling(i/2),sep="")}
+    ahdi <- cbind(ahdi,dhdi)
+  }
+  cctfit$itemhdi <- data.frame(item=1:cctfit$m,ahdi);
+  
+  tmphdi <- NULL; tmpn <- NULL;  pp <-  cctfit$params[cctfit$params %in% c("th","E","a","b","g")]
+  for(i in 1:length(pp)){
+    tmphdi <- cbind(tmphdi,round(t(apply(cctfit$BUGSoutput$sims.list[[pp[i]]],2,hdi)),2))
+    tmpn <- c(tmpn,c(paste("l_",pp[i],sep=""),paste("u_",pp[i],sep="")))
+  }
+  tmphdi <- data.frame(tmphdi); dimnames(tmphdi)[[2]] <- tmpn;
+  cctfit$subjhdi <- data.frame(participant=1:cctfit$n,tmphdi) 
+  
+  if(cctfit$whmodel=="LTRM"){
+    pp <-  "gam"
+    tmphdi <- apply(cctfit$BUGSoutput$sims.list[[pp]],appdims,hdi)
+    ahdi <- NULL; 
+    
+    a <- data.frame(gam=round(cctfit$BUGSoutput$mean[[pp]],2)); 
+    dimnames(a)[[2]] <- gsub(pattern="m.",replacement=paste("m",sep=""),x=dimnames(a)[[2]]); 
+    a <- data.frame(boundary=1:(cctfit$C-1),a)
+    
+    tmphdi <- apply(cctfit$BUGSoutput$sims.list[[pp]],appdims,hdi)
+    ahdi <- NULL; 
+    if(cctfit$V>1){for(i in 1:cctfit$V){ ahdi <- cbind(ahdi,t(tmphdi[,,i])) }; 
+    }else{ahdi <- t(tmphdi)}; ahdi <- data.frame(ahdi)
+    for(i in seq(from=1,to=(cctfit$V*2),by=2)){dimnames(ahdi)[[2]][i] <- paste("l_gam",ceiling(i/2),sep=""); dimnames(ahdi)[[2]][i+1] <- paste("u_gam",ceiling(i/2),sep="")}
+    a <- data.frame(a,round(ahdi,digits=2))
+    cctfit$cat <- a
   }
   
   ######################
@@ -2137,6 +2300,8 @@ plotresultsfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE) {
     segments(1:cctfit$n,hditmp[1,], 1:cctfit$n, hditmp[2,])
     arrows(1:cctfit$n,hditmp[1,], 1:cctfit$n, hditmp[2,],code=3,angle=90,length=.025)
     
+    
+    
     plot(cctfit$BUGSoutput$mean$g,main=expression(paste("Respondent Guessing Bias (",g[i],")")),xlab="Respondent",ylab="Posterior Mean Value",las=1,ylim=c(0,1),pch=sym[cctfit$respmem],bg=bgcol[cctfit$respmem])
     hditmp <- apply(cctfit$BUGSoutput$sims.list$g,2,hdi)
     segments(1:cctfit$n,hditmp[1,], 1:cctfit$n, hditmp[2,])
@@ -2379,7 +2544,7 @@ ppcfuncbutton <- function(){
   )
 }
 
-ppcfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE,polych=FALSE,rerunchecks=FALSE) {
+ppcfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE,polych=FALSE,rerunchecks=FALSE,doplot=TRUE) {
   if(gui==TRUE){guidat <- get("guidat", pkg_globals)}
   
   if(cctfit$checksrun==FALSE || rerunchecks==TRUE){
@@ -3141,7 +3306,7 @@ ppcfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE,polych=FALSE,rerunch
     }
     message("\n ...Posterior predictive checks complete")
   }
-  
+ if(doplot == TRUE){ 
   if(saveplots==1){jpeg(file.path(gsub(".Rdata","ppc.jpg",savedir)),width = 6, height = 3, units = "in", pointsize = 12,quality=100,res=400)}
   if(saveplots==2){postscript(file=file.path(gsub(".Rdata","ppc.eps",savedir)), onefile=FALSE, horizontal=FALSE, width = 6, height = 6, paper="special", family="Times")}
   
@@ -3188,7 +3353,7 @@ ppcfunc <- function(cctfit,saveplots=0,savedir="",gui=FALSE,polych=FALSE,rerunch
   rm(color,color2)
   if(saveplots==1 || saveplots==2){dev.off()}
   saveplots <- 0
-  
+}
     return(cctfit)  
 }
 
@@ -3207,6 +3372,48 @@ cctmvest <- function(cctfit){
     return(cctfit$MVest)
   }
   
+}
+
+#######################
+#Accessor Function for the Factor Coefficients
+#######################
+cctfac <- function(dat){
+  return(print(dat$factors,digits=2))
+}
+
+#######################
+#Accessor Function for the Subject Parameters
+#######################
+cctsubj <- function(cctfit){
+  return(print(cctfit$subj,digits=2))
+}
+
+#######################
+#Accessor Function for the Credible Intervals of the Subject Parameters
+#######################
+cctsubjhdi <- function(cctfit){
+  return(print(cctfit$subjhdi,digits=2))
+}
+
+#######################
+#Accessor Function for the Item Parameters
+#######################
+cctitem <- function(cctfit){
+  return(print(cctfit$item,digits=2))
+}
+
+#######################
+#Accessor Function for the Credible Intervals of the Item Parameters
+#######################
+cctitemhdi <- function(cctfit){
+  return(print(cctfit$itemhdi,digits=2))
+}
+
+#######################
+#Accessor Function for the Category Boundary Parameters and Credible Intervals (LTRM only)
+#######################
+cctcat <- function(cctfit){
+  return(print(cctfit$cat,digits=2))
 }
 
 #######################

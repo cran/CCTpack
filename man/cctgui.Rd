@@ -4,6 +4,9 @@
 The CCT GUI
 }
 \description{
+There is a graphical user interfance available, though it is being phased out -- it is not compatible with all operating systems. 
+
+Instructions how to use the GUI:
 1. Type 'cctgui()' in the R command prompt to start the CCT GUI \cr
 2. Click "Load data" (data must be in csv format as a .csv or .txt file) \cr
       data format: respondents (rows) by items (columns), csv format, no row/column names necessary \cr

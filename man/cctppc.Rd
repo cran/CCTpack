@@ -7,11 +7,12 @@
 Plots (and calculates if not calculated already), the posterior predictive model checks for the cctfit object
 }
 \usage{
-cctppc(cctfit, polych = FALSE)
+cctppc(cctfit, polych = FALSE, doplot = TRUE)
 }
 \arguments{
   \item{cctfit}{The \code{cctfit} object as obtained from the \code{cctapply()} function.}
   \item{polych}{used for ordinal data only, if the polychoric correlations, rather than Pearson correlations, should be used (for the posterior predictive checks) -- these take a long time to calculate but are more precise in the ordinal data case.}
+  \item{doplot}{If the diagnostics should be plotted.}
 }
 \details{
 Generates 500 posterior predictive data sets that are randomly sampled from the posterior predictive data; it uses these to calculate 2 posterior predictive checks that respectively pertain to fitting the consensus structure of the data (the number of latent cultures), and if heterogeneous item difficulty should be used.

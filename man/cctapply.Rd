@@ -1,15 +1,15 @@
 \name{cctapply}
 \alias{cctapply}
 \title{
-General CCT Application function: load data, fit the model, run checks on the fit, and optionally export results 
+Primary function to perform model-based consensus analysis: loads the data and fits the consensus model. Allows for model-based clustering based on the numbers of "clusters" specified.  Options are also available to run diagnostics on the fit, and to export the results to saved files. Based on cultural consensus theory (CCT) models for data matrices of binary, ordered categorical, or continuous response data. 
 }
 \description{
 loads the data, fits the appropriate model, runs the posterior predictive checks, and optionally exports results 
 }
 \usage{
 cctapply(data, clusters = 1, itemdiff = FALSE, samples = 10000, chains = 3,
-         burnin = 2000, thinning = 1, runchecks = TRUE, exportfilename = "",
-         polych = FALSE, parallel = FALSE, seed = NULL,plotr=TRUE)
+         burnin = 2000, thinning = 1, runchecks = FALSE, exportfilename = "",
+         polych = FALSE, parallel = FALSE, seed = NULL,plotr=FALSE)
 }
 \arguments{
   \item{data}{a 2-dimensional matrix or array, missing values should be input as NA.}
@@ -27,14 +27,54 @@ cctapply(data, clusters = 1, itemdiff = FALSE, samples = 10000, chains = 3,
     \item{plotr}{Whether to plot the posterior mean results for each parameter. Note: \code{runchecks = TRUE} will plot the posterior predictive checks after the posterior mean results. The posterior mean results plot can be later called via \code{cctresults()}.}
 }
 \details{
-This is an "all-in-one" function for the GUI. 
+This is the main function to fit the consensus models. The function fits the model using hierarchical Bayesian inference. The Bayesian sampling is performed using JAGS.
 }
 \value{
 \code{cctfit} is returned, which has the structure of a 'jagsfit' object as in Rjags, but has additional data included.
 }
 \examples{
+# Load Data (here binary responses, 1/0 for yes/no)
 data(hotcold)
+
+# Calculate scree plot to decide how many clusters to run, looks like 2 clusters here
+dat <-  cctscree(hotcold)
+
+# Retrieve factors from the scree plot
+cctfac(dat)    # dat$factors
+
+# Fit the Model  
 # cctfit <- cctapply(data = hotcold, clusters = 2, itemdiff = TRUE, samples = 10000, 
-#                     chains = 3, burnin = 2000, runchecks = TRUE)
+#                     chains = 3, burnin = 2000, seed = 1, runchecks = FALSE)
+
+# Calculate Fit Diagnostics (Posterior Predictive Checks)
+# cctfit <- cctppc(cctfit)
+
+# Plot Parameter Results
+# cctresults(cctfit) 		  
+
+# Tables of Subject and Item Parameter Values and Credible Intervals
+# cctsubj(cctfit)      # cctfit$subj
+# cctsubjhdi(cctfit)   # cctfit$subjhdi
+# cctitem(cctfit)      # cctfit$item
+# cctitemhdi(cctfit)   # cctfit$itemhdi
+
+# Show Missing Value Model Estimates if there was missing data
+# cctmvest(cctfit)
+
+# Export Results (saves data and plots)
+# cctexport(cctfit,filename="CCTpackdata.Rdata") 
+
+# Load and Fit Example Data for ordered categorical or continuous responses
+# data(raterdata)
+
+# cctfit <- cctapply(data = raterdata, clusters = 1, itemdiff = TRUE, samples = 10000, 
+#                     chains = 3, burnin = 2000, seed = 1, runchecks = FALSE)
+
+# data(continuousdata)
+# cctfit <- cctapply(data = continuousdata, clusters = 1, itemdiff = TRUE, samples = 10000, 
+#                     chains = 3, burnin = 2000, seed = 1, runchecks = FALSE)
+
+##Note: if an insufficient memory message occurs, you can increase the
+##memory allocation by the command 'memory.limit(25000)'  (or as high as needed)
 }
 
