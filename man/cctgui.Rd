@@ -4,7 +4,7 @@
 The CCT GUI
 }
 \description{
-There is a graphical user interfance available, though it is being phased out -- it is not compatible with all operating systems. 
+There is a graphical user interfance available, though it is deprecated / being phased out -- it is not compatible with all operating systems. 
 
 Instructions how to use the GUI:
 1. Type 'cctgui()' in the R command prompt to start the CCT GUI \cr

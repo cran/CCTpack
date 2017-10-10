@@ -188,14 +188,14 @@ cctgui <- function(){
 #- 'exportfilename' set a name different from "" if one wants to automatically export the results 
 #    to the working directory
 ######################
-cctapply <- function(data,clusters=1,itemdiff=FALSE,samples=10000,chains=3,burnin=2000,thinning=1,runchecks=FALSE,exportfilename="",polych=FALSE,parallel=FALSE,seed=NULL,plotr=FALSE){
+cctapply <- function(data,clusters=1,itemdiff=FALSE,biases=TRUE,samples=10000,chains=3,burnin=2000,thinning=1,runchecks=FALSE,exportfilename="",polych=FALSE,parallel=FALSE,seed=NULL,plotr=FALSE){
   if(!is.null(seed)){
     set.seed(1); rm(list=".Random.seed", envir=globalenv())
     set.seed(seed)
   }else{set.seed(1); rm(list=".Random.seed", envir=globalenv())}
   datob <- loadfilefunc(data)
   datob <- screeplotfunc(datob,noplot=TRUE)
-  cctfit <- applymodelfunc(datob,clusters=clusters,itemdiff=itemdiff,jags.iter=samples,jags.chains=chains,jags.burnin=burnin,jags.thin=thinning,parallel=parallel)
+  cctfit <- applymodelfunc(datob,clusters=clusters,itemdiff=itemdiff,biases=biases,jags.iter=samples,jags.chains=chains,jags.burnin=burnin,jags.thin=thinning,parallel=parallel)
   if(plotr==TRUE){plotresultsfunc(cctfit)}
   if(runchecks==TRUE){
     cctfit <- ppcfunc(cctfit,polych=polych,doplot=FALSE)
@@ -727,7 +727,7 @@ applymodelfuncbutton <- function() {
   #)
 }
 
-applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,jags.iter=10000,jags.chains=3,jags.burnin=2000,jags.thin=1,parallel=FALSE,gui=FALSE) {
+applymodelfunc <- function(datob,clusters=1,itemdiff=FALSE,biases=TRUE,jags.iter=10000,jags.chains=3,jags.burnin=2000,jags.thin=1,parallel=FALSE,gui=FALSE) {
   
   if(gui==TRUE){guidat <- get("guidat", pkg_globals)}
   ######################
@@ -1052,9 +1052,17 @@ mcltrm <-
       model.file <- mcgcm
       jags.params <- c("Z","th","g","p","thmu","thtau","gmu","gtau","Om","pi")
       if(clusters>1){
+        if(biases==TRUE){
         jags.inits <- function(){ list("Z"=matrix(rbinom(nitem*V,1,.5),nitem,V),"th"= runif(nresp,.2,.8), "g"= runif(nresp,.2,.8),"Om"= sample(1:V,nresp,replace=TRUE) )}
+        }else{
+        jags.inits <- function(){ list("Z"=matrix(rbinom(nitem*V,1,.5),nitem,V),"th"= runif(nresp,.2,.8), "Om"= sample(1:V,nresp,replace=TRUE) )}
+        }
       }else{
+        if(biases==TRUE){
         jags.inits <- function(){ list("Z"=matrix(rbinom(nitem*V,1,.5),nitem,V),"th"= runif(nresp,.2,.8), "g"= runif(nresp,.2,.8) )}
+        }else{
+        jags.inits <- function(){ list("Z"=matrix(rbinom(nitem*V,1,.5),nitem,V),"th"= runif(nresp,.2,.8) )}
+        }
       }
       
     }
@@ -1062,14 +1070,26 @@ mcltrm <-
       model.file <- mcgcmid
       jags.params <- c("Z","th","g","lam","p","thmu","thtau","gmu","gtau","lammu","lamtau","Om","pi")
       if(clusters>1){
+        if(biases==TRUE){
         jags.inits <- function(){ list("Z"=matrix(rbinom(nitem*V,1,.5),nitem,V),"th"= runif(nresp,.2,.8), "g"= runif(nresp,.2,.8), "lam"= matrix(runif(nitem*V,.2,.8),nitem,V), "Om"= sample(1:V,nresp,replace=TRUE) )}
+        }else{
+        jags.inits <- function(){ list("Z"=matrix(rbinom(nitem*V,1,.5),nitem,V),"th"= runif(nresp,.2,.8), "lam"= matrix(runif(nitem*V,.2,.8),nitem,V), "Om"= sample(1:V,nresp,replace=TRUE) )}
+        }
       }else{
+        if(biases==TRUE){
         jags.inits <- function(){ list("Z"=matrix(rbinom(nitem*V,1,.5),nitem,V),"th"= runif(nresp,.2,.8), "g"= runif(nresp,.2,.8), "lam"= matrix(runif(nitem*V,.2,.8),nitem,V) )}
+        }else{
+          jags.inits <- function(){ list("Z"=matrix(rbinom(nitem*V,1,.5),nitem,V),"th"= runif(nresp,.2,.8), "lam"= matrix(runif(nitem*V,.2,.8),nitem,V) )}
+        }
       }
     }
     if(clusters==1){
       model.file <- gsub(pattern="pi\\[1\\:V\\] ~ ddirch\\(L\\)", "pi <- 1", model.file)
       model.file <- gsub(pattern="Om\\[i\\] ~ dcat\\(pi\\)", "Om\\[i\\] <- 1", model.file)
+    }
+    if(biases==FALSE){
+      model.file <- gsub(pattern="g\\[i\\] ~ dbeta\\(gmu\\[Om\\[i\\]\\]\\*gtau\\[Om\\[i\\]\\],\\(1-gmu\\[Om\\[i\\]\\]\\)\\*gtau\\[Om\\[i\\]\\]\\)", "g\\[i\\] <- .5", model.file)
+      model.file <- gsub(pattern="gtau\\[v\\] ~ dgamma\\(pow\\(gsmu,2\\)/pow\\(gssig,2\\),gsmu/pow\\(gssig,2\\)\\)", "gtau\\[v\\] <- 0", model.file)
     }
   }
   
@@ -1120,7 +1140,7 @@ mcltrm <-
         }
         model.file <- gsub(pattern="a\\[i\\] <- exp\\(alog\\[i\\]\\)", "a\\[i\\] <- 1", model.file)
         model.file <- gsub(pattern="alog\\[i\\] ~ dnorm\\(amu\\[Om\\[i\\]\\],atau\\[Om\\[i\\]\\]\\)T\\(-2.3,2.3\\)", "", model.file)
-        model.file <- gsub(pattern="atau\\[v\\] ~ dgamma\\(.01,.01\\)T\\(.01,\\)", "atau\\[v\\] <- 0", model.file)
+        model.file <- gsub(pattern="atau\\[v\\] ~ dgamma\\(.01, .01\\)T\\(.01,\\)", "atau\\[v\\] <- 0", model.file)
         model.file <- gsub(pattern="for \\(c in 2\\:\\(C-1\\)\\)", " #for \\(c in 2\\:\\(C-1\\)\\)", model.file)
         model.file <- gsub(pattern="gam\\[1\\:\\(C-1\\),v\\] <- sort\\(tgam2\\[1\\:\\(C-1\\),v\\]\\)", "gam\\[1,v\\] <- 0 }", model.file)
         model.file <- gsub(pattern="for \\(c in 1\\:\\(C-2\\)\\)", "#for \\(c in 1\\:\\(C-2\\)\\)", model.file)
@@ -1134,6 +1154,14 @@ mcltrm <-
       model.file <- gsub(pattern="pi\\[1\\:V\\] ~ ddirch\\(L\\)", "pi <- 1", model.file)
       model.file <- gsub(pattern="Om\\[i\\] ~ dcat\\(pi\\)", "Om\\[i\\] <- 1", model.file)
     }
+    if(biases==FALSE){
+      model.file <- gsub(pattern="a\\[i\\] <- exp\\(alog\\[i\\]\\)", "a\\[i\\] <- 1", model.file)
+      model.file <- gsub(pattern="alog\\[i\\] ~ dnorm\\(amu\\[Om\\[i\\]\\],atau\\[Om\\[i\\]\\]\\)T\\(-2.3,2.3\\)", "alog\\[i\\] <- 0", model.file)
+      model.file <- gsub(pattern="atau\\[v\\] ~ dgamma\\(.01, .01\\)T\\(.01,\\)", "atau\\[v\\] <- 0", model.file)
+      
+      model.file <- gsub(pattern="b\\[i\\] ~ dnorm\\(bmu\\[Om\\[i\\]\\],btau\\[Om\\[i\\]\\]) ", "b\\[i\\] <- 0", model.file)
+      model.file <- gsub(pattern="btau\\[v\\] ~ dgamma\\(.01, .01\\)", "btau\\[v\\] <- 0", model.file)
+      }
   }
   
   if(datob$whmodel=="CRM"){
@@ -1162,7 +1190,15 @@ mcltrm <-
     if(clusters==1){ 
       model.file <- gsub(pattern="pi\\[1\\:V\\] ~ ddirch\\(L\\)", "pi <- 1", model.file)
       model.file <- gsub(pattern="Om\\[i\\] ~ dcat\\(pi\\)", "Om\\[i\\] <- 1", model.file)
-    } 
+    }
+    if(biases==FALSE){
+      model.file <- gsub(pattern="a\\[i\\] <- exp\\(alog\\[i\\]\\)", "a\\[i\\] <- 1", model.file)
+      model.file <- gsub(pattern="alog\\[i\\] ~ dnorm\\(amu\\[Om\\[i\\]\\],atau\\[Om\\[i\\]\\]\\)T\\(-2.3,2.3\\)", "alog\\[i\\] <- 0", model.file)
+      model.file <- gsub(pattern="atau\\[v\\] ~ dgamma\\(.01, .01\\)T\\(.01,\\)", "atau\\[v\\] <- 0", model.file)
+      
+      model.file <- gsub(pattern="b\\[i\\] ~ dnorm\\(bmu\\[Om\\[i\\]\\],btau\\[Om\\[i\\]\\]) ", "b\\[i\\] <- 0", model.file)
+      model.file <- gsub(pattern="btau\\[v\\] ~ dgamma\\(.01, .01\\)", "btau\\[v\\] <- 0", model.file)
+    }
   }
   
   ######################

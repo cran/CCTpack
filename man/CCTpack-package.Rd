@@ -27,8 +27,8 @@ automatic plots of the model results, diagnostics for quality of fit, and export
 \tabular{ll}{
 Package: \tab CCTpack\cr
 Type: \tab Package\cr
-Version: \tab 1.5.1 \cr
-Date: \tab 2017-02-11\cr
+Version: \tab 1.5.2 \cr
+Date: \tab 2017-10-10\cr
 License: \tab GPL (>= 2) \cr
 }
 1. Make sure you have JAGS installed \cr

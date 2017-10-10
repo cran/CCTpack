@@ -7,14 +7,15 @@ Primary function to perform model-based consensus analysis: loads the data and f
 loads the data, fits the appropriate model, runs the posterior predictive checks, and optionally exports results 
 }
 \usage{
-cctapply(data, clusters = 1, itemdiff = FALSE, samples = 10000, chains = 3,
+cctapply(data, clusters = 1, itemdiff = FALSE, biases = TRUE, samples = 10000, chains = 3,
          burnin = 2000, thinning = 1, runchecks = FALSE, exportfilename = "",
          polych = FALSE, parallel = FALSE, seed = NULL,plotr=FALSE)
 }
 \arguments{
   \item{data}{a 2-dimensional matrix or array, missing values should be input as NA.}
   \item{clusters}{The number of possible clusters (cultures) to use}
-  \item{itemdiff}{Whether heterogeneous item difficulty should be used}
+  \item{itemdiff}{Whether item difficulty should be measured and accounted for}
+  \item{biases}{Whether response biases should be measured and accounted for}
   \item{samples}{The number of samples for the inference}
   \item{chains}{The number of chains for the inference}
   \item{burnin}{The number of burn-in for the inference}
